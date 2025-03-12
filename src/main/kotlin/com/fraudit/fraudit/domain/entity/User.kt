@@ -1,11 +1,11 @@
 package com.fraudit.fraudit.domain.entity
 
+import com.fraudit.fraudit.domain.enum.UserRole
 import jakarta.persistence.*
 import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.UpdateTimestamp
 import java.time.OffsetDateTime
 import java.util.*
-
 
 // User Entity
 @Entity
@@ -48,7 +48,3 @@ data class User(
     @Column(name = "updated_at")
     val updatedAt: OffsetDateTime? = null
 )
-
-enum class UserRole {
-    ADMIN, REGULATOR, AUDITOR, ANALYST
-}
