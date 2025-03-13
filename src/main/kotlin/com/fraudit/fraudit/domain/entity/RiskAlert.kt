@@ -1,6 +1,5 @@
 package com.fraudit.fraudit.domain.entity
 
-import com.fraudit.fraudit.domain.enum.AlertSeverity
 import jakarta.persistence.*
 import java.time.OffsetDateTime
 
@@ -23,7 +22,7 @@ data class RiskAlert(
 
     @Enumerated(EnumType.STRING)
     @Column(name = "severity", nullable = false)
-    val severity: AlertSeverity,
+    val severity: Enum<*>,
 
     @Column(name = "message", nullable = false)
     val message: String,
