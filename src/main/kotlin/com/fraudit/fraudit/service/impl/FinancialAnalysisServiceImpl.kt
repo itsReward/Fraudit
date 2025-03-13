@@ -903,7 +903,7 @@ class FinancialAnalysisServiceImpl(
                 id = null,
                 assessment = assessment,
                 alertType = "OVERALL_RISK",
-                severity = assessment.riskLevel ?: AlertSeverity.HIGH,
+                severity = if (assessment.riskLevel == RiskLevel.VERY_HIGH ) AlertSeverity.VERY_HIGH else AlertSeverity.HIGH ,
                 message = "High overall fraud risk detected for ${assessment.statement.fiscalYear.company.name} " +
                         "(${assessment.statement.fiscalYear.year}). Score: ${assessment.overallRiskScore}",
                 createdAt = OffsetDateTime.now(),
