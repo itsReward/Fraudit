@@ -1,10 +1,14 @@
 package com.fraudit.fraudit.service.impl
 
 import com.fraudit.fraudit.domain.entity.FinancialData
+import com.fraudit.fraudit.domain.entity.FinancialStatement
+import com.fraudit.fraudit.domain.enum.StatementStatus
 import com.fraudit.fraudit.repository.FinancialDataRepository
 import com.fraudit.fraudit.repository.FinancialStatementRepository
 import com.fraudit.fraudit.service.AuditLogService
 import com.fraudit.fraudit.service.FinancialDataService
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -21,6 +25,8 @@ class FinancialDataServiceImpl(
 
     override fun findAll(): List<FinancialData> = financialDataRepository.findAll()
 
+    override fun findAllPaged(pageable: Pageable): Page<FinancialData> = financialDataRepository.findAll(pageable)
+
     override fun findById(id: Long): FinancialData = financialDataRepository.findById(id)
         .orElseThrow { EntityNotFoundException("Financial data not found with id: $id") }
 
@@ -28,6 +34,9 @@ class FinancialDataServiceImpl(
 
     override fun findLatestByCompanyId(companyId: Long): List<FinancialData> =
         financialDataRepository.findLatestByCompanyId(companyId)
+
+    override fun findByCompanyId(companyId: Long, pageable: Pageable): Page<FinancialData> =
+        financialDataRepository.findByStatementFiscalYearCompanyId(companyId, pageable)
 
     @Transactional
     override fun createFinancialData(financialData: FinancialData, userId: UUID): FinancialData {
@@ -37,7 +46,13 @@ class FinancialDataServiceImpl(
             throw IllegalStateException("Financial data already exists for statement id: ${financialData.statement.id}")
         }
 
-        val savedData = financialDataRepository.save(financialData)
+        // Calculate derived values if not provided
+        val enrichedData = calculateDerivedValuesInternal(financialData)
+
+        // Update statement status to PROCESSED
+        updateStatementStatus(enrichedData.statement.id!!, StatementStatus.PROCESSED)
+
+        val savedData = financialDataRepository.save(enrichedData)
 
         auditLogService.logEvent(
             userId = userId,
@@ -55,7 +70,10 @@ class FinancialDataServiceImpl(
         // Ensure the financial data exists
         findById(financialData.id!!)
 
-        val savedData = financialDataRepository.save(financialData)
+        // Calculate derived values if not provided
+        val enrichedData = calculateDerivedValuesInternal(financialData)
+
+        val savedData = financialDataRepository.save(enrichedData)
 
         auditLogService.logEvent(
             userId = userId,
@@ -72,6 +90,9 @@ class FinancialDataServiceImpl(
     override fun deleteFinancialData(id: Long, userId: UUID) {
         val financialData = findById(id)
 
+        // Update statement status to PENDING
+        updateStatementStatus(financialData.statement.id!!, StatementStatus.PENDING)
+
         financialDataRepository.delete(financialData)
 
         auditLogService.logEvent(
@@ -87,49 +108,141 @@ class FinancialDataServiceImpl(
     override fun calculateDerivedValues(id: Long, userId: UUID): FinancialData {
         val financialData = findById(id)
 
-        // Calculate derived values
+        val enrichedData = calculateDerivedValuesInternal(financialData)
 
+        val savedData = financialDataRepository.save(enrichedData)
+
+        auditLogService.logEvent(
+            userId = userId,
+            action = "CALCULATE",
+            entityType = "FINANCIAL_DATA",
+            entityId = savedData.id.toString(),
+            details = "Calculated derived values for financial data with id: $id"
+        )
+
+        return savedData
+    }
+
+    @Transactional
+    override fun calculateGrowthRates(statementId: Long, userId: UUID): FinancialData {
+        val currentStatement = financialStatementRepository.findById(statementId)
+            .orElseThrow { EntityNotFoundException("Financial statement not found with id: $statementId") }
+
+        val currentData = financialDataRepository.findByStatementId(statementId)
+            ?: throw EntityNotFoundException("Financial data not found for statement id: $statementId")
+
+        // Find previous year statement of the same type
+        val companyId = currentStatement.fiscalYear.company.id!!
+        val currentYear = currentStatement.fiscalYear.year
+        val statementType = currentStatement.statementType
+
+        // Find all statements for the company
+        val previousStatements = financialStatementRepository.findByFiscalYearCompanyIdAndStatementType(
+            companyId, statementType)
+            .filter { it.fiscalYear.year < currentYear }
+            .sortedByDescending { it.fiscalYear.year }
+
+        if (previousStatements.isEmpty()) {
+            // No previous statements found, can't calculate growth
+            return currentData
+        }
+
+        val previousStatementId = previousStatements.first().id!!
+        val previousData = financialDataRepository.findByStatementId(previousStatementId)
+            ?: return currentData  // No previous data, can't calculate growth
+
+        // Calculate growth rates
+        val revenueGrowth = calculateGrowthRate(currentData.revenue, previousData.revenue)
+        val grossProfitGrowth = calculateGrowthRate(currentData.grossProfit, previousData.grossProfit)
+        val netIncomeGrowth = calculateGrowthRate(currentData.netIncome, previousData.netIncome)
+        val assetGrowth = calculateGrowthRate(currentData.totalAssets, previousData.totalAssets)
+        val receivablesGrowth = calculateGrowthRate(currentData.accountsReceivable, previousData.accountsReceivable)
+        val inventoryGrowth = calculateGrowthRate(currentData.inventory, previousData.inventory)
+        val liabilityGrowth = calculateGrowthRate(currentData.totalLiabilities, previousData.totalLiabilities)
+
+        // Update data with growth rates
+        val updatedData = currentData.copy(
+            revenueGrowth = revenueGrowth,
+            grossProfitGrowth = grossProfitGrowth,
+            netIncomeGrowth = netIncomeGrowth,
+            assetGrowth = assetGrowth,
+            receivablesGrowth = receivablesGrowth,
+            inventoryGrowth = inventoryGrowth,
+            liabilityGrowth = liabilityGrowth
+        )
+
+        val savedData = financialDataRepository.save(updatedData)
+
+        auditLogService.logEvent(
+            userId = userId,
+            action = "CALCULATE_GROWTH",
+            entityType = "FINANCIAL_DATA",
+            entityId = savedData.id.toString(),
+            details = "Calculated growth rates for financial data with id: ${currentData.id}"
+        )
+
+        return savedData
+    }
+
+    private fun calculateGrowthRate(current: BigDecimal?, previous: BigDecimal?): BigDecimal? {
+        if (current == null || previous == null || previous == BigDecimal.ZERO) {
+            return null
+        }
+
+        return current.subtract(previous)
+            .divide(previous.abs(), 4, RoundingMode.HALF_UP)
+    }
+
+    private fun updateStatementStatus(statementId: Long, status: StatementStatus) {
+        val statement = financialStatementRepository.findById(statementId)
+            .orElseThrow { EntityNotFoundException("Financial statement not found with id: $statementId") }
+
+        val updatedStatement = statement.copy(status = status)
+        financialStatementRepository.save(updatedStatement)
+    }
+
+    private fun calculateDerivedValuesInternal(data: FinancialData): FinancialData {
         // 1. Calculate Gross Profit if not provided
-        var grossProfit = financialData.grossProfit
-        if (grossProfit == null && financialData.revenue != null && financialData.costOfSales != null) {
-            grossProfit = financialData.revenue!!.subtract(financialData.costOfSales)
+        var grossProfit = data.grossProfit
+        if (grossProfit == null && data.revenue != null && data.costOfSales != null) {
+            grossProfit = data.revenue!!.subtract(data.costOfSales)
         }
 
         // 2. Calculate Operating Income if not provided
-        var operatingIncome = financialData.operatingIncome
-        if (operatingIncome == null && grossProfit != null && financialData.operatingExpenses != null) {
-            operatingIncome = grossProfit.subtract(financialData.operatingExpenses)
+        var operatingIncome = data.operatingIncome
+        if (operatingIncome == null && grossProfit != null && data.operatingExpenses != null) {
+            operatingIncome = grossProfit.subtract(data.operatingExpenses)
         }
 
         // 3. Calculate Earnings Before Tax if not provided
-        var earningsBeforeTax = financialData.earningsBeforeTax
+        var earningsBeforeTax = data.earningsBeforeTax
         if (earningsBeforeTax == null && operatingIncome != null) {
-            earningsBeforeTax = operatingIncome.subtract(financialData.interestExpense ?: BigDecimal.ZERO)
-                .add(financialData.otherIncome ?: BigDecimal.ZERO)
+            earningsBeforeTax = operatingIncome.subtract(data.interestExpense ?: BigDecimal.ZERO)
+                .add(data.otherIncome ?: BigDecimal.ZERO)
         }
 
         // 4. Calculate Net Income if not provided
-        var netIncome = financialData.netIncome
-        if (netIncome == null && earningsBeforeTax != null && financialData.incomeTax != null) {
-            netIncome = earningsBeforeTax.subtract(financialData.incomeTax)
+        var netIncome = data.netIncome
+        if (netIncome == null && earningsBeforeTax != null && data.incomeTax != null) {
+            netIncome = earningsBeforeTax.subtract(data.incomeTax)
         }
 
         // 5. Calculate Total Current Assets if not provided
-        var totalCurrentAssets = financialData.totalCurrentAssets
+        var totalCurrentAssets = data.totalCurrentAssets
         if (totalCurrentAssets == null) {
             totalCurrentAssets = BigDecimal.ZERO
-                .add(financialData.cash ?: BigDecimal.ZERO)
-                .add(financialData.shortTermInvestments ?: BigDecimal.ZERO)
-                .add(financialData.accountsReceivable ?: BigDecimal.ZERO)
-                .add(financialData.inventory ?: BigDecimal.ZERO)
-                .add(financialData.otherCurrentAssets ?: BigDecimal.ZERO)
+                .add(data.cash ?: BigDecimal.ZERO)
+                .add(data.shortTermInvestments ?: BigDecimal.ZERO)
+                .add(data.accountsReceivable ?: BigDecimal.ZERO)
+                .add(data.inventory ?: BigDecimal.ZERO)
+                .add(data.otherCurrentAssets ?: BigDecimal.ZERO)
         }
 
         // 6. Calculate Total Non-Current Assets if not provided
-        var totalNonCurrentAssets = financialData.totalNonCurrentAssets
+        var totalNonCurrentAssets = data.totalNonCurrentAssets
         if (totalNonCurrentAssets == null) {
-            var ppe = financialData.propertyPlantEquipment ?: BigDecimal.ZERO
-            val accumulatedDepreciation = financialData.accumulatedDepreciation ?: BigDecimal.ZERO
+            var ppe = data.propertyPlantEquipment ?: BigDecimal.ZERO
+            val accumulatedDepreciation = data.accumulatedDepreciation ?: BigDecimal.ZERO
 
             // If accumulated depreciation is stored as a positive value, subtract it
             if (accumulatedDepreciation.compareTo(BigDecimal.ZERO) > 0) {
@@ -138,67 +251,72 @@ class FinancialDataServiceImpl(
 
             totalNonCurrentAssets = BigDecimal.ZERO
                 .add(ppe)
-                .add(financialData.intangibleAssets ?: BigDecimal.ZERO)
-                .add(financialData.longTermInvestments ?: BigDecimal.ZERO)
-                .add(financialData.otherNonCurrentAssets ?: BigDecimal.ZERO)
+                .add(data.intangibleAssets ?: BigDecimal.ZERO)
+                .add(data.longTermInvestments ?: BigDecimal.ZERO)
+                .add(data.otherNonCurrentAssets ?: BigDecimal.ZERO)
         }
 
         // 7. Calculate Total Assets if not provided
-        var totalAssets = financialData.totalAssets
+        var totalAssets = data.totalAssets
         if (totalAssets == null && totalCurrentAssets != null && totalNonCurrentAssets != null) {
             totalAssets = totalCurrentAssets.add(totalNonCurrentAssets)
         }
 
         // 8. Calculate Total Current Liabilities if not provided
-        var totalCurrentLiabilities = financialData.totalCurrentLiabilities
+        var totalCurrentLiabilities = data.totalCurrentLiabilities
         if (totalCurrentLiabilities == null) {
             totalCurrentLiabilities = BigDecimal.ZERO
-                .add(financialData.accountsPayable ?: BigDecimal.ZERO)
-                .add(financialData.shortTermDebt ?: BigDecimal.ZERO)
-                .add(financialData.accruedLiabilities ?: BigDecimal.ZERO)
-                .add(financialData.otherCurrentLiabilities ?: BigDecimal.ZERO)
+                .add(data.accountsPayable ?: BigDecimal.ZERO)
+                .add(data.shortTermDebt ?: BigDecimal.ZERO)
+                .add(data.accruedLiabilities ?: BigDecimal.ZERO)
+                .add(data.otherCurrentLiabilities ?: BigDecimal.ZERO)
         }
 
         // 9. Calculate Total Non-Current Liabilities if not provided
-        var totalNonCurrentLiabilities = financialData.totalNonCurrentLiabilities
+        var totalNonCurrentLiabilities = data.totalNonCurrentLiabilities
         if (totalNonCurrentLiabilities == null) {
             totalNonCurrentLiabilities = BigDecimal.ZERO
-                .add(financialData.longTermDebt ?: BigDecimal.ZERO)
-                .add(financialData.deferredTaxes ?: BigDecimal.ZERO)
-                .add(financialData.otherNonCurrentLiabilities ?: BigDecimal.ZERO)
+                .add(data.longTermDebt ?: BigDecimal.ZERO)
+                .add(data.deferredTaxes ?: BigDecimal.ZERO)
+                .add(data.otherNonCurrentLiabilities ?: BigDecimal.ZERO)
         }
 
         // 10. Calculate Total Liabilities if not provided
-        var totalLiabilities = financialData.totalLiabilities
+        var totalLiabilities = data.totalLiabilities
         if (totalLiabilities == null && totalCurrentLiabilities != null && totalNonCurrentLiabilities != null) {
             totalLiabilities = totalCurrentLiabilities.add(totalNonCurrentLiabilities)
         }
 
         // 11. Calculate Total Equity if not provided
-        var totalEquity = financialData.totalEquity
+        var totalEquity = data.totalEquity
         if (totalEquity == null) {
             totalEquity = BigDecimal.ZERO
-                .add(financialData.commonStock ?: BigDecimal.ZERO)
-                .add(financialData.additionalPaidInCapital ?: BigDecimal.ZERO)
-                .add(financialData.retainedEarnings ?: BigDecimal.ZERO)
-                .subtract(financialData.treasuryStock ?: BigDecimal.ZERO)
-                .add(financialData.otherEquity ?: BigDecimal.ZERO)
+                .add(data.commonStock ?: BigDecimal.ZERO)
+                .add(data.additionalPaidInCapital ?: BigDecimal.ZERO)
+                .add(data.retainedEarnings ?: BigDecimal.ZERO)
+                .subtract(data.treasuryStock ?: BigDecimal.ZERO)
+                .add(data.otherEquity ?: BigDecimal.ZERO)
+        }
+
+        // Alternatively, calculate Total Equity as Assets - Liabilities
+        if (totalEquity == null && totalAssets != null && totalLiabilities != null) {
+            totalEquity = totalAssets.subtract(totalLiabilities)
         }
 
         // 12. Calculate Book Value Per Share if not provided
-        var bookValuePerShare = financialData.bookValuePerShare
-        if (bookValuePerShare == null && totalEquity != null && financialData.sharesOutstanding != null && financialData.sharesOutstanding != BigDecimal.ZERO) {
-            bookValuePerShare = totalEquity.divide(financialData.sharesOutstanding, 4, RoundingMode.HALF_UP)
+        var bookValuePerShare = data.bookValuePerShare
+        if (bookValuePerShare == null && totalEquity != null && data.sharesOutstanding != null && data.sharesOutstanding != BigDecimal.ZERO) {
+            bookValuePerShare = totalEquity.divide(data.sharesOutstanding, 4, RoundingMode.HALF_UP)
         }
 
         // 13. Calculate Earnings Per Share if not provided
-        var earningsPerShare = financialData.earningsPerShare
-        if (earningsPerShare == null && netIncome != null && financialData.sharesOutstanding != null && financialData.sharesOutstanding != BigDecimal.ZERO) {
-            earningsPerShare = netIncome.divide(financialData.sharesOutstanding, 4, RoundingMode.HALF_UP)
+        var earningsPerShare = data.earningsPerShare
+        if (earningsPerShare == null && netIncome != null && data.sharesOutstanding != null && data.sharesOutstanding != BigDecimal.ZERO) {
+            earningsPerShare = netIncome.divide(data.sharesOutstanding, 4, RoundingMode.HALF_UP)
         }
 
         // Create updated financial data entity with calculated values
-        val updatedFinancialData = financialData.copy(
+        return data.copy(
             grossProfit = grossProfit,
             operatingIncome = operatingIncome,
             earningsBeforeTax = earningsBeforeTax,
@@ -213,17 +331,5 @@ class FinancialDataServiceImpl(
             bookValuePerShare = bookValuePerShare,
             earningsPerShare = earningsPerShare
         )
-
-        val savedData = financialDataRepository.save(updatedFinancialData)
-
-        auditLogService.logEvent(
-            userId = userId,
-            action = "CALCULATE",
-            entityType = "FINANCIAL_DATA",
-            entityId = savedData.id.toString(),
-            details = "Calculated derived values for financial data with id: $id"
-        )
-
-        return savedData
     }
 }

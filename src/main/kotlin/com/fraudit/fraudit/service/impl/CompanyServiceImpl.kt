@@ -4,6 +4,8 @@ import com.fraudit.fraudit.domain.entity.Company
 import com.fraudit.fraudit.repository.CompanyRepository
 import com.fraudit.fraudit.service.AuditLogService
 import com.fraudit.fraudit.service.CompanyService
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -17,6 +19,8 @@ class CompanyServiceImpl(
 
     override fun findAll(): List<Company> = companyRepository.findAll()
 
+    override fun findAllPaged(pageable: Pageable): Page<Company> = companyRepository.findAll(pageable)
+
     override fun findById(id: Long): Company = companyRepository.findById(id)
         .orElseThrow { EntityNotFoundException("Company not found with id: $id") }
 
@@ -27,6 +31,9 @@ class CompanyServiceImpl(
         .orElseThrow { EntityNotFoundException("Company not found with stock code: $stockCode") }
 
     override fun findBySector(sector: String): List<Company> = companyRepository.findBySector(sector)
+
+    override fun findBySectorPaged(sector: String, pageable: Pageable): Page<Company> =
+        companyRepository.findBySector(sector, pageable)
 
     @Transactional
     override fun createCompany(company: Company, userId: UUID): Company {
@@ -80,15 +87,20 @@ class CompanyServiceImpl(
     @Transactional
     override fun deleteCompany(id: Long, userId: UUID) {
         val company = findById(id)
-        companyRepository.delete(company)
 
-        auditLogService.logEvent(
-            userId = userId,
-            action = "DELETE",
-            entityType = "COMPANY",
-            entityId = id.toString(),
-            details = "Deleted company: ${company.name} (${company.stockCode})"
-        )
+        try {
+            companyRepository.delete(company)
+
+            auditLogService.logEvent(
+                userId = userId,
+                action = "DELETE",
+                entityType = "COMPANY",
+                entityId = id.toString(),
+                details = "Deleted company: ${company.name} (${company.stockCode})"
+            )
+        } catch (e: Exception) {
+            throw IllegalStateException("Cannot delete company because it has associated records", e)
+        }
     }
 
     override fun isCompanyNameAvailable(name: String): Boolean = !companyRepository.existsByName(name)

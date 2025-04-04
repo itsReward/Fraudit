@@ -4,6 +4,7 @@ import com.fraudit.fraudit.domain.entity.User
 import com.fraudit.fraudit.domain.enum.UserRole
 import com.fraudit.fraudit.repository.UserRepository
 import com.fraudit.fraudit.service.AuditLogService
+import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -18,6 +19,8 @@ class DefaultAdminService(
     private val auditLogService: AuditLogService
 ) {
 
+    private val logger = LoggerFactory.getLogger(DefaultAdminService::class.java)
+
     companion object {
         private const val DEFAULT_ADMIN_USERNAME = "admin"
         private const val DEFAULT_ADMIN_EMAIL = "admin@fraudit.com"
@@ -30,7 +33,11 @@ class DefaultAdminService(
     @Transactional
     fun createDefaultAdminIfNeeded() {
         // Check if any users exist in the database
-        if (userRepository.count() == 0L) {
+        val userCount = userRepository.count()
+
+        if (userCount == 0L) {
+            logger.info("No users found in database. Creating default admin user...")
+
             // Create a default admin user
             val encodedPassword = passwordEncoder.encode(DEFAULT_ADMIN_PASSWORD)
             val adminUser = User(
@@ -57,12 +64,14 @@ class DefaultAdminService(
             )
 
             // Log to console as well
-            println("===================================================")
-            println("Created default admin user:")
-            println("Username: $DEFAULT_ADMIN_USERNAME")
-            println("Password: $DEFAULT_ADMIN_PASSWORD")
-            println("Please change this password after first login!")
-            println("===================================================")
+            logger.info("===================================================")
+            logger.info("Created default admin user:")
+            logger.info("Username: $DEFAULT_ADMIN_USERNAME")
+            logger.info("Password: $DEFAULT_ADMIN_PASSWORD")
+            logger.info("Please change this password after first login!")
+            logger.info("===================================================")
+        } else {
+            logger.info("Found $userCount existing users in database. Skipping default admin creation.")
         }
     }
 }

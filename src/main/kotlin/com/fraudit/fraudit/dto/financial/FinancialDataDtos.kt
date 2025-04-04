@@ -165,3 +165,39 @@ data class FinancialDataSummaryResponse(
     val totalLiabilities: BigDecimal?,
     val updatedAt: OffsetDateTime?
 )
+
+/**
+ * Response DTO for financial trend data over multiple years
+ */
+data class FinancialTrendResponse(
+    val year: Int,
+    val revenue: BigDecimal?,
+    val netIncome: BigDecimal?,
+    val totalAssets: BigDecimal?,
+    val totalLiabilities: BigDecimal?,
+    val totalEquity: BigDecimal?,
+    val revenueGrowth: BigDecimal?,
+    val netIncomeGrowth: BigDecimal?,
+    val assetGrowth: BigDecimal?,
+    val liabilityGrowth: BigDecimal?
+)
+
+/**
+ * Response DTO for financial metrics summary
+ */
+data class FinancialMetricsSummaryResponse(
+    val companyId: Long,
+    val companyName: String,
+    val stockCode: String,
+    val year: Int,
+    val revenue: BigDecimal?,
+    val netIncome: BigDecimal?,
+    val totalAssets: BigDecimal?,
+    val totalLiabilities: BigDecimal?,
+    val totalEquity: BigDecimal?,
+    val profitMargin: BigDecimal?,
+    val currentRatio: BigDecimal?,
+    val debtToEquity: BigDecimal?,
+    val returnOnAssets: BigDecimal?,
+    val statementId: Long
+)
