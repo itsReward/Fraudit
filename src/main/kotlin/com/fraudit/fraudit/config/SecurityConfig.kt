@@ -16,7 +16,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-class SecurityConfig  {
+class SecurityConfig {
 
     @Bean
     fun passwordEncoder(): PasswordEncoder {
@@ -46,10 +46,19 @@ class SecurityConfig  {
             .authorizeHttpRequests { auth ->
                 auth
                     .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh").permitAll()
-                    .requestMatchers("/api/companies/**", "/api/fiscal-years/**").permitAll() // For development; restrict in production
+                    .requestMatchers("/api/companies/**", "/api/fiscal-years/**").permitAll() // For development
+                    .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/api-docs/**", "/v3/api-docs/**").permitAll()
+                    .requestMatchers("/h2-console/**").permitAll() // For development - H2 console
                     .anyRequest().authenticated()
             }
-        // Add JWT authentication filter here when implementing JWT
+
+        // For H2 console
+        http.headers { headers ->
+            headers.frameOptions { frameOptions ->
+                frameOptions.disable()
+            }
+        }
+
         return http.build()
     }
 }
