@@ -12,6 +12,7 @@ import com.fraudit.fraudit.service.FinancialStatementService
 import com.fraudit.fraudit.service.FiscalYearService
 import com.fraudit.fraudit.service.UserService
 import jakarta.validation.Valid
+import org.slf4j.LoggerFactory
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -31,6 +32,7 @@ class FinancialStatementController(
     private val userService: UserService,
     private val companyService: CompanyService
 ) {
+    private val logger = LoggerFactory.getLogger(FinancialStatementController::class.java)
 
     @GetMapping
     fun getAllStatements(
@@ -43,43 +45,65 @@ class FinancialStatementController(
         @RequestParam(defaultValue = "uploadDate") sortBy: String,
         @RequestParam(defaultValue = "DESC") sortDirection: String
     ): ResponseEntity<ApiResponse<PagedResponse<FinancialStatementSummaryResponse>>> {
-        val direction = if (sortDirection.equals("ASC", ignoreCase = true))
-            Sort.Direction.ASC else Sort.Direction.DESC
+        try {
+            val direction = if (sortDirection.equals("ASC", ignoreCase = true))
+                Sort.Direction.ASC else Sort.Direction.DESC
 
-        val pageable = PageRequest.of(page, size, Sort.by(direction, sortBy))
+            val pageable = PageRequest.of(page, size, Sort.by(direction, sortBy))
 
-        val statementsPage = when {
-            companyId != null -> financialStatementService.findByCompanyIdPaged(companyId, pageable)
-            fiscalYearId != null -> financialStatementService.findByFiscalYearIdPaged(fiscalYearId, pageable)
-            statementType != null -> financialStatementService.findByStatementTypePaged(statementType, pageable)
-            status != null -> financialStatementService.findByStatusPaged(status, pageable)
-            else -> financialStatementService.findAllPaged(pageable)
-        }
+            val statementsPage = when {
+                companyId != null -> financialStatementService.findByCompanyIdPaged(companyId, pageable)
+                fiscalYearId != null -> financialStatementService.findByFiscalYearIdPaged(fiscalYearId, pageable)
+                statementType != null -> financialStatementService.findByStatementTypePaged(statementType, pageable)
+                status != null -> financialStatementService.findByStatusPaged(status, pageable)
+                else -> financialStatementService.findAllPaged(pageable)
+            }
 
-        val pagedResponse = createPagedResponse(statementsPage) { statement ->
-            mapToFinancialStatementSummaryResponse(statement)
-        }
+            val pagedResponse = createPagedResponse(statementsPage) { statement ->
+                mapToFinancialStatementSummaryResponse(statement)
+            }
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Financial statements retrieved successfully",
-                data = pagedResponse
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statements retrieved successfully",
+                    data = pagedResponse
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving financial statements: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving financial statements",
+                    errors = listOf(e.message ?: "Unknown error occurred")
+                )
+            )
+        }
     }
 
     @GetMapping("/{id}")
     fun getStatementById(@PathVariable id: Long): ResponseEntity<ApiResponse<FinancialStatementResponse>> {
-        val statement = financialStatementService.findById(id)
+        try {
+            val statement = financialStatementService.findById(id)
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Financial statement retrieved successfully",
-                data = mapToFinancialStatementResponse(statement)
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statement retrieved successfully",
+                    data = mapToFinancialStatementResponse(statement)
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving financial statement: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse(
+                    success = false,
+                    message = "Financial statement not found",
+                    errors = listOf(e.message ?: "Financial statement not found")
+                )
+            )
+        }
     }
 
     @GetMapping("/company/{companyId}")
@@ -88,21 +112,34 @@ class FinancialStatementController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "10") size: Int
     ): ResponseEntity<ApiResponse<PagedResponse<FinancialStatementSummaryResponse>>> {
-        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "fiscalYear.year"))
+        try {
+            // First verify company exists
+            companyService.findById(companyId)
 
-        val statementsPage = financialStatementService.findByCompanyIdPaged(companyId, pageable)
+            val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "fiscalYear.year"))
+            val statementsPage = financialStatementService.findByCompanyIdPaged(companyId, pageable)
 
-        val pagedResponse = createPagedResponse(statementsPage) { statement ->
-            mapToFinancialStatementSummaryResponse(statement)
-        }
+            val pagedResponse = createPagedResponse(statementsPage) { statement ->
+                mapToFinancialStatementSummaryResponse(statement)
+            }
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Financial statements retrieved successfully",
-                data = pagedResponse
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statements retrieved successfully",
+                    data = pagedResponse
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving financial statements by company ID: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving financial statements",
+                    errors = listOf(e.message ?: "Company not found or error occurred")
+                )
+            )
+        }
     }
 
     @GetMapping("/fiscal-year/{fiscalYearId}")
@@ -111,21 +148,34 @@ class FinancialStatementController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "10") size: Int
     ): ResponseEntity<ApiResponse<PagedResponse<FinancialStatementSummaryResponse>>> {
-        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "uploadDate"))
+        try {
+            // First verify fiscal year exists
+            fiscalYearService.findById(fiscalYearId)
 
-        val statementsPage = financialStatementService.findByFiscalYearIdPaged(fiscalYearId, pageable)
+            val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "uploadDate"))
+            val statementsPage = financialStatementService.findByFiscalYearIdPaged(fiscalYearId, pageable)
 
-        val pagedResponse = createPagedResponse(statementsPage) { statement ->
-            mapToFinancialStatementSummaryResponse(statement)
-        }
+            val pagedResponse = createPagedResponse(statementsPage) { statement ->
+                mapToFinancialStatementSummaryResponse(statement)
+            }
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Financial statements retrieved successfully",
-                data = pagedResponse
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statements retrieved successfully",
+                    data = pagedResponse
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving financial statements by fiscal year ID: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving financial statements",
+                    errors = listOf(e.message ?: "Fiscal year not found or error occurred")
+                )
+            )
+        }
     }
 
     @GetMapping("/user")
@@ -135,22 +185,33 @@ class FinancialStatementController(
         @RequestParam(defaultValue = "10") size: Int,
         @AuthenticationPrincipal userDetails: UserDetails
     ): ResponseEntity<ApiResponse<PagedResponse<FinancialStatementSummaryResponse>>> {
-        val userId = UUID.fromString(userDetails.username)
-        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "uploadDate"))
+        try {
+            val userId = UUID.fromString(userDetails.username)
+            val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "uploadDate"))
 
-        val statementsPage = financialStatementService.findByUserIdPaged(userId, pageable)
+            val statementsPage = financialStatementService.findByUserIdPaged(userId, pageable)
 
-        val pagedResponse = createPagedResponse(statementsPage) { statement ->
-            mapToFinancialStatementSummaryResponse(statement)
-        }
+            val pagedResponse = createPagedResponse(statementsPage) { statement ->
+                mapToFinancialStatementSummaryResponse(statement)
+            }
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Your financial statements retrieved successfully",
-                data = pagedResponse
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Your financial statements retrieved successfully",
+                    data = pagedResponse
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving user's financial statements: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving financial statements",
+                    errors = listOf(e.message ?: "Error occurred while retrieving your statements")
+                )
+            )
+        }
     }
 
     @GetMapping("/status/{status}")
@@ -159,21 +220,31 @@ class FinancialStatementController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "10") size: Int
     ): ResponseEntity<ApiResponse<PagedResponse<FinancialStatementSummaryResponse>>> {
-        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "uploadDate"))
+        try {
+            val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "uploadDate"))
+            val statementsPage = financialStatementService.findByStatusPaged(status, pageable)
 
-        val statementsPage = financialStatementService.findByStatusPaged(status, pageable)
+            val pagedResponse = createPagedResponse(statementsPage) { statement ->
+                mapToFinancialStatementSummaryResponse(statement)
+            }
 
-        val pagedResponse = createPagedResponse(statementsPage) { statement ->
-            mapToFinancialStatementSummaryResponse(statement)
-        }
-
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Financial statements with status $status retrieved successfully",
-                data = pagedResponse
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statements with status $status retrieved successfully",
+                    data = pagedResponse
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving financial statements by status: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving financial statements",
+                    errors = listOf(e.message ?: "Error occurred while retrieving statements")
+                )
+            )
+        }
     }
 
     @GetMapping("/type/{statementType}")
@@ -182,36 +253,60 @@ class FinancialStatementController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "10") size: Int
     ): ResponseEntity<ApiResponse<PagedResponse<FinancialStatementSummaryResponse>>> {
-        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "uploadDate"))
+        try {
+            val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "uploadDate"))
+            val statementsPage = financialStatementService.findByStatementTypePaged(statementType, pageable)
 
-        val statementsPage = financialStatementService.findByStatementTypePaged(statementType, pageable)
+            val pagedResponse = createPagedResponse(statementsPage) { statement ->
+                mapToFinancialStatementSummaryResponse(statement)
+            }
 
-        val pagedResponse = createPagedResponse(statementsPage) { statement ->
-            mapToFinancialStatementSummaryResponse(statement)
-        }
-
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Financial statements of type $statementType retrieved successfully",
-                data = pagedResponse
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statements of type $statementType retrieved successfully",
+                    data = pagedResponse
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving financial statements by type: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving financial statements",
+                    errors = listOf(e.message ?: "Error occurred while retrieving statements")
+                )
+            )
+        }
     }
 
     @GetMapping("/stock-code/{stockCode}")
     fun getStatementsByStockCode(
         @PathVariable stockCode: String
     ): ResponseEntity<ApiResponse<List<FinancialStatementSummaryResponse>>> {
-        val statements = financialStatementService.findByCompanyStockCode(stockCode)
+        try {
+            // First verify company with stock code exists
+            companyService.findByStockCode(stockCode)
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Financial statements for stock code $stockCode retrieved successfully",
-                data = statements.map { mapToFinancialStatementSummaryResponse(it) }
+            val statements = financialStatementService.findByCompanyStockCode(stockCode)
+
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statements for stock code $stockCode retrieved successfully",
+                    data = statements.map { mapToFinancialStatementSummaryResponse(it) }
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving financial statements by stock code: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving financial statements",
+                    errors = listOf(e.message ?: "Company with stock code not found or error occurred")
+                )
+            )
+        }
     }
 
     @GetMapping("/company/{companyId}/year/{year}")
@@ -219,15 +314,29 @@ class FinancialStatementController(
         @PathVariable companyId: Long,
         @PathVariable year: Int
     ): ResponseEntity<ApiResponse<List<FinancialStatementSummaryResponse>>> {
-        val statements = financialStatementService.findByCompanyIdAndYear(companyId, year)
+        try {
+            // First verify company exists
+            companyService.findById(companyId)
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Financial statements for company $companyId in year $year retrieved successfully",
-                data = statements.map { mapToFinancialStatementSummaryResponse(it) }
+            val statements = financialStatementService.findByCompanyIdAndYear(companyId, year)
+
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statements for company $companyId in year $year retrieved successfully",
+                    data = statements.map { mapToFinancialStatementSummaryResponse(it) }
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving financial statements by company and year: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving financial statements",
+                    errors = listOf(e.message ?: "Company not found or error occurred")
+                )
+            )
+        }
     }
 
     @GetMapping("/validate")
@@ -236,77 +345,102 @@ class FinancialStatementController(
         @RequestParam statementType: StatementType,
         @RequestParam(required = false) period: String?
     ): ResponseEntity<ApiResponse<FinancialStatementValidationResponse>> {
-        // Check if a statement with this fiscal year, type, and period already exists
-        val existingStatements = financialStatementService.findByFiscalYearIdAndStatementType(
-            fiscalYearId, statementType)
+        try {
+            // First verify fiscal year exists
+            fiscalYearService.findById(fiscalYearId)
 
-        val isDuplicate = existingStatements.isNotEmpty() &&
-                (period == null || existingStatements.any { it.period == period })
+            // Check if a statement with this fiscal year, type, and period already exists
+            val existingStatements = financialStatementService.findByFiscalYearIdAndStatementType(
+                fiscalYearId, statementType)
 
-        val validation = if (isDuplicate) {
-            val fiscalYear = fiscalYearService.findById(fiscalYearId)
-            FinancialStatementValidationResponse(
-                valid = false,
-                message = "A ${statementType.name} statement" +
-                        (if (period != null) " for period $period" else "") +
-                        " already exists for fiscal year ${fiscalYear.year}"
+            val isDuplicate = existingStatements.isNotEmpty() &&
+                    (period == null || existingStatements.any { it.period == period })
+
+            val validation = if (isDuplicate) {
+                val fiscalYear = fiscalYearService.findById(fiscalYearId)
+                FinancialStatementValidationResponse(
+                    valid = false,
+                    message = "A ${statementType.name} statement" +
+                            (if (period != null) " for period $period" else "") +
+                            " already exists for fiscal year ${fiscalYear.year}"
+                )
+            } else {
+                FinancialStatementValidationResponse(
+                    valid = true,
+                    message = null
+                )
+            }
+
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Statement validation completed",
+                    data = validation
+                )
             )
-        } else {
-            FinancialStatementValidationResponse(
-                valid = true,
-                message = null
+        } catch (e: Exception) {
+            logger.error("Error validating financial statement: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse(
+                    success = false,
+                    message = "Validation failed",
+                    errors = listOf(e.message ?: "Fiscal year not found or error occurred")
+                )
             )
         }
-
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Statement validation completed",
-                data = validation
-            )
-        )
     }
 
     @GetMapping("/stats")
     fun getStatementStats(): ResponseEntity<ApiResponse<FinancialStatementStatsResponse>> {
-        val allStatements = financialStatementService.findAll()
+        try {
+            val allStatements = financialStatementService.findAll()
 
-        val totalStatements = allStatements.size
-        val pendingCount = allStatements.count { it.status == StatementStatus.PENDING }
-        val processedCount = allStatements.count { it.status == StatementStatus.PROCESSED }
-        val analyzedCount = allStatements.count { it.status == StatementStatus.ANALYZED }
+            val totalStatements = allStatements.size
+            val pendingCount = allStatements.count { it.status == StatementStatus.PENDING }
+            val processedCount = allStatements.count { it.status == StatementStatus.PROCESSED }
+            val analyzedCount = allStatements.count { it.status == StatementStatus.ANALYZED }
 
-        val annualCount = allStatements.count { it.statementType == StatementType.ANNUAL }
-        val interimCount = allStatements.count { it.statementType == StatementType.INTERIM }
-        val quarterlyCount = allStatements.count { it.statementType == StatementType.QUARTERLY }
+            val annualCount = allStatements.count { it.statementType == StatementType.ANNUAL }
+            val interimCount = allStatements.count { it.statementType == StatementType.INTERIM }
+            val quarterlyCount = allStatements.count { it.statementType == StatementType.QUARTERLY }
 
-        val statementsByCompany = allStatements
-            .groupBy { it.fiscalYear.company.name }
-            .mapValues { it.value.size }
+            val statementsByCompany = allStatements
+                .groupBy { it.fiscalYear.company.name }
+                .mapValues { it.value.size }
 
-        val statementsByYear = allStatements
-            .groupBy { it.fiscalYear.year }
-            .mapValues { it.value.size }
+            val statementsByYear = allStatements
+                .groupBy { it.fiscalYear.year }
+                .mapValues { it.value.size }
 
-        val stats = FinancialStatementStatsResponse(
-            totalStatements = totalStatements,
-            pendingCount = pendingCount,
-            processedCount = processedCount,
-            analyzedCount = analyzedCount,
-            annualCount = annualCount,
-            interimCount = interimCount,
-            quarterlyCount = quarterlyCount,
-            statementsByCompany = statementsByCompany,
-            statementsByYear = statementsByYear
-        )
-
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Financial statement statistics retrieved successfully",
-                data = stats
+            val stats = FinancialStatementStatsResponse(
+                totalStatements = totalStatements,
+                pendingCount = pendingCount,
+                processedCount = processedCount,
+                analyzedCount = analyzedCount,
+                annualCount = annualCount,
+                interimCount = interimCount,
+                quarterlyCount = quarterlyCount,
+                statementsByCompany = statementsByCompany,
+                statementsByYear = statementsByYear
             )
-        )
+
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statement statistics retrieved successfully",
+                    data = stats
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Error retrieving financial statement statistics: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving statistics",
+                    errors = listOf(e.message ?: "Error occurred while retrieving statistics")
+                )
+            )
+        }
     }
 
     @PostMapping
@@ -315,35 +449,63 @@ class FinancialStatementController(
         @Valid @RequestBody statementRequest: FinancialStatementRequest,
         @AuthenticationPrincipal userDetails: UserDetails
     ): ResponseEntity<ApiResponse<FinancialStatementResponse>> {
-        val userId = UUID.fromString(userDetails.username)
+        try {
+            val userId = UUID.fromString(userDetails.username)
 
-        // Get fiscal year
-        val fiscalYear = fiscalYearService.findById(statementRequest.fiscalYearId)
+            // Get fiscal year
+            val fiscalYear = fiscalYearService.findById(statementRequest.fiscalYearId)
 
-        // Get user
-        val user = userService.findById(userId)
+            // Get user
+            val user = userService.findById(userId)
 
-        // Create statement entity
-        val statement = FinancialStatement(
-            id = null,
-            fiscalYear = fiscalYear,
-            user = user,
-            statementType = statementRequest.statementType,
-            period = statementRequest.period,
-            uploadDate = java.time.OffsetDateTime.now(),
-            status = StatementStatus.PENDING
-        )
+            // Validate no duplicate statement exists
+            val existingStatements = financialStatementService.findByFiscalYearIdAndStatementType(
+                statementRequest.fiscalYearId, statementRequest.statementType)
 
-        // Create statement
-        val createdStatement = financialStatementService.createStatement(statement, userId)
+            if (existingStatements.isNotEmpty() &&
+                (statementRequest.period == null || existingStatements.any { it.period == statementRequest.period })) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                    ApiResponse(
+                        success = false,
+                        message = "A ${statementRequest.statementType.name} statement" +
+                                (if (statementRequest.period != null) " for period ${statementRequest.period}" else "") +
+                                " already exists for fiscal year ${fiscalYear.year}",
+                        errors = listOf("Duplicate statement")
+                    )
+                )
+            }
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-            ApiResponse(
-                success = true,
-                message = "Financial statement created successfully",
-                data = mapToFinancialStatementResponse(createdStatement)
+            // Create statement entity
+            val statement = FinancialStatement(
+                id = null,
+                fiscalYear = fiscalYear,
+                user = user,
+                statementType = statementRequest.statementType,
+                period = statementRequest.period,
+                uploadDate = java.time.OffsetDateTime.now(),
+                status = StatementStatus.PENDING
             )
-        )
+
+            // Create statement
+            val createdStatement = financialStatementService.createStatement(statement, userId)
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statement created successfully",
+                    data = mapToFinancialStatementResponse(createdStatement)
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Error creating financial statement: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error creating financial statement",
+                    errors = listOf(e.message ?: "Error occurred while creating statement")
+                )
+            )
+        }
     }
 
     @PutMapping("/{id}")
@@ -353,31 +515,76 @@ class FinancialStatementController(
         @Valid @RequestBody statementRequest: FinancialStatementRequest,
         @AuthenticationPrincipal userDetails: UserDetails
     ): ResponseEntity<ApiResponse<FinancialStatementResponse>> {
-        val userId = UUID.fromString(userDetails.username)
+        try {
+            val userId = UUID.fromString(userDetails.username)
 
-        // Get existing statement
-        val existingStatement = financialStatementService.findById(id)
+            // Get existing statement
+            val existingStatement = financialStatementService.findById(id)
 
-        // Get fiscal year
-        val fiscalYear = fiscalYearService.findById(statementRequest.fiscalYearId)
+            // Verify user has permission (admin or owner)
+            if (existingStatement.user.id != userId && !userDetails.authorities.any { it.authority == "ROLE_ADMIN" }) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                    ApiResponse(
+                        success = false,
+                        message = "You don't have permission to update this statement",
+                        errors = listOf("Insufficient permissions")
+                    )
+                )
+            }
 
-        // Create updated statement entity
-        val statement = existingStatement.copy(
-            fiscalYear = fiscalYear,
-            statementType = statementRequest.statementType,
-            period = statementRequest.period
-        )
+            // Get fiscal year
+            val fiscalYear = fiscalYearService.findById(statementRequest.fiscalYearId)
 
-        // Update statement
-        val updatedStatement = financialStatementService.updateStatement(statement, userId)
+            // Validate no duplicate statement exists (except this one)
+            if (existingStatement.fiscalYear.id != statementRequest.fiscalYearId ||
+                existingStatement.statementType != statementRequest.statementType ||
+                existingStatement.period != statementRequest.period) {
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Financial statement updated successfully",
-                data = mapToFinancialStatementResponse(updatedStatement)
+                val existingStatements = financialStatementService.findByFiscalYearIdAndStatementType(
+                    statementRequest.fiscalYearId, statementRequest.statementType)
+                    .filter { it.id != id }
+
+                if (existingStatements.isNotEmpty() &&
+                    (statementRequest.period == null || existingStatements.any { it.period == statementRequest.period })) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                        ApiResponse(
+                            success = false,
+                            message = "A ${statementRequest.statementType.name} statement" +
+                                    (if (statementRequest.period != null) " for period ${statementRequest.period}" else "") +
+                                    " already exists for fiscal year ${fiscalYear.year}",
+                            errors = listOf("Duplicate statement")
+                        )
+                    )
+                }
+            }
+
+            // Create updated statement entity
+            val statement = existingStatement.copy(
+                fiscalYear = fiscalYear,
+                statementType = statementRequest.statementType,
+                period = statementRequest.period
             )
-        )
+
+            // Update statement
+            val updatedStatement = financialStatementService.updateStatement(statement, userId)
+
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statement updated successfully",
+                    data = mapToFinancialStatementResponse(updatedStatement)
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Error updating financial statement: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error updating financial statement",
+                    errors = listOf(e.message ?: "Error occurred while updating statement")
+                )
+            )
+        }
     }
 
     @PutMapping("/{id}/status")
@@ -387,17 +594,43 @@ class FinancialStatementController(
         @Valid @RequestBody statusUpdateRequest: StatementStatusUpdateRequest,
         @AuthenticationPrincipal userDetails: UserDetails
     ): ResponseEntity<ApiResponse<FinancialStatementResponse>> {
-        val userId = UUID.fromString(userDetails.username)
+        try {
+            val userId = UUID.fromString(userDetails.username)
 
-        val updatedStatement = financialStatementService.updateStatus(id, statusUpdateRequest.status, userId)
+            // Get existing statement to check permissions
+            val existingStatement = financialStatementService.findById(id)
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Financial statement status updated successfully",
-                data = mapToFinancialStatementResponse(updatedStatement)
+            // Verify user has permission (admin or owner)
+            if (existingStatement.user.id != userId && !userDetails.authorities.any { it.authority == "ROLE_ADMIN" }) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                    ApiResponse(
+                        success = false,
+                        message = "You don't have permission to update this statement",
+                        errors = listOf("Insufficient permissions")
+                    )
+                )
+            }
+
+            // Update status
+            val updatedStatement = financialStatementService.updateStatus(id, statusUpdateRequest.status, userId)
+
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statement status updated successfully",
+                    data = mapToFinancialStatementResponse(updatedStatement)
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error updating financial statement status: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error updating financial statement status",
+                    errors = listOf(e.message ?: "Error occurred while updating status")
+                )
+            )
+        }
     }
 
     @DeleteMapping("/{id}")
@@ -406,16 +639,38 @@ class FinancialStatementController(
         @PathVariable id: Long,
         @AuthenticationPrincipal userDetails: UserDetails
     ): ResponseEntity<ApiResponse<Void>> {
-        val userId = UUID.fromString(userDetails.username)
+        try {
+            val userId = UUID.fromString(userDetails.username)
 
-        financialStatementService.deleteStatement(id, userId)
+            // Attempt to delete the statement
+            financialStatementService.deleteStatement(id, userId)
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Financial statement deleted successfully"
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Financial statement deleted successfully"
+                )
             )
-        )
+        } catch (e: IllegalStateException) {
+            // Statement has associated records
+            logger.error("Cannot delete financial statement: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                ApiResponse(
+                    success = false,
+                    message = "Cannot delete financial statement because it has associated records",
+                    errors = listOf(e.message ?: "Statement has associated records")
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Error deleting financial statement: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error deleting financial statement",
+                    errors = listOf(e.message ?: "Error occurred while deleting statement")
+                )
+            )
+        }
     }
 
     /**

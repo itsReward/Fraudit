@@ -7,6 +7,7 @@ import com.fraudit.fraudit.dto.fiscalyear.*
 import com.fraudit.fraudit.service.CompanyService
 import com.fraudit.fraudit.service.FiscalYearService
 import jakarta.validation.Valid
+import org.slf4j.LoggerFactory
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -24,6 +25,7 @@ class FiscalYearController(
     private val fiscalYearService: FiscalYearService,
     private val companyService: CompanyService
 ) {
+    private val logger = LoggerFactory.getLogger(FiscalYearController::class.java)
 
     @GetMapping
     fun getAllFiscalYears(
@@ -35,42 +37,64 @@ class FiscalYearController(
         @RequestParam(defaultValue = "year") sortBy: String,
         @RequestParam(defaultValue = "DESC") sortDirection: String
     ): ResponseEntity<ApiResponse<PagedResponse<FiscalYearSummaryResponse>>> {
-        val direction = if (sortDirection.equals("ASC", ignoreCase = true))
-            Sort.Direction.ASC else Sort.Direction.DESC
+        try {
+            val direction = if (sortDirection.equals("ASC", ignoreCase = true))
+                Sort.Direction.ASC else Sort.Direction.DESC
 
-        val pageable = PageRequest.of(page, size, Sort.by(direction, sortBy))
+            val pageable = PageRequest.of(page, size, Sort.by(direction, sortBy))
 
-        val fiscalYearsPage = when {
-            companyId != null -> fiscalYearService.findByCompanyIdPaged(companyId, pageable)
-            year != null -> fiscalYearService.findByYearPaged(year, pageable)
-            isAudited != null -> fiscalYearService.findByAuditStatusPaged(isAudited, pageable)
-            else -> fiscalYearService.findAllPaged(pageable)
-        }
+            val fiscalYearsPage = when {
+                companyId != null -> fiscalYearService.findByCompanyIdPaged(companyId, pageable)
+                year != null -> fiscalYearService.findByYearPaged(year, pageable)
+                isAudited != null -> fiscalYearService.findByAuditStatusPaged(isAudited, pageable)
+                else -> fiscalYearService.findAllPaged(pageable)
+            }
 
-        val pagedResponse = createPagedResponse(fiscalYearsPage) { fiscalYear ->
-            mapToFiscalYearSummaryResponse(fiscalYear)
-        }
+            val pagedResponse = createPagedResponse(fiscalYearsPage) { fiscalYear ->
+                mapToFiscalYearSummaryResponse(fiscalYear)
+            }
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Fiscal years retrieved successfully",
-                data = pagedResponse
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Fiscal years retrieved successfully",
+                    data = pagedResponse
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving fiscal years: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving fiscal years",
+                    errors = listOf(e.message ?: "Unknown error occurred")
+                )
+            )
+        }
     }
 
     @GetMapping("/{id}")
     fun getFiscalYearById(@PathVariable id: Long): ResponseEntity<ApiResponse<FiscalYearResponse>> {
-        val fiscalYear = fiscalYearService.findById(id)
+        try {
+            val fiscalYear = fiscalYearService.findById(id)
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Fiscal year retrieved successfully",
-                data = mapToFiscalYearResponse(fiscalYear)
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Fiscal year retrieved successfully",
+                    data = mapToFiscalYearResponse(fiscalYear)
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving fiscal year: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse(
+                    success = false,
+                    message = "Fiscal year not found",
+                    errors = listOf(e.message ?: "Fiscal year not found")
+                )
+            )
+        }
     }
 
     @GetMapping("/company/{companyId}")
@@ -79,21 +103,34 @@ class FiscalYearController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "10") size: Int
     ): ResponseEntity<ApiResponse<PagedResponse<FiscalYearSummaryResponse>>> {
-        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "year"))
+        try {
+            // First verify company exists
+            companyService.findById(companyId)
 
-        val fiscalYearsPage = fiscalYearService.findByCompanyIdPaged(companyId, pageable)
+            val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "year"))
+            val fiscalYearsPage = fiscalYearService.findByCompanyIdPaged(companyId, pageable)
 
-        val pagedResponse = createPagedResponse(fiscalYearsPage) { fiscalYear ->
-            mapToFiscalYearSummaryResponse(fiscalYear)
-        }
+            val pagedResponse = createPagedResponse(fiscalYearsPage) { fiscalYear ->
+                mapToFiscalYearSummaryResponse(fiscalYear)
+            }
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Fiscal years retrieved successfully",
-                data = pagedResponse
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Fiscal years retrieved successfully",
+                    data = pagedResponse
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving fiscal years by company ID: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving fiscal years",
+                    errors = listOf(e.message ?: "Company not found or error occurred")
+                )
+            )
+        }
     }
 
     @GetMapping("/year/{year}")
@@ -102,21 +139,31 @@ class FiscalYearController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "10") size: Int
     ): ResponseEntity<ApiResponse<PagedResponse<FiscalYearSummaryResponse>>> {
-        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "company.name"))
+        try {
+            val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "company.name"))
+            val fiscalYearsPage = fiscalYearService.findByYearPaged(year, pageable)
 
-        val fiscalYearsPage = fiscalYearService.findByYearPaged(year, pageable)
+            val pagedResponse = createPagedResponse(fiscalYearsPage) { fiscalYear ->
+                mapToFiscalYearSummaryResponse(fiscalYear)
+            }
 
-        val pagedResponse = createPagedResponse(fiscalYearsPage) { fiscalYear ->
-            mapToFiscalYearSummaryResponse(fiscalYear)
-        }
-
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Fiscal years retrieved successfully",
-                data = pagedResponse
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Fiscal years retrieved successfully",
+                    data = pagedResponse
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving fiscal years by year: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving fiscal years",
+                    errors = listOf(e.message ?: "Error occurred while retrieving fiscal years")
+                )
+            )
+        }
     }
 
     @GetMapping("/audited/{isAudited}")
@@ -125,21 +172,31 @@ class FiscalYearController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "10") size: Int
     ): ResponseEntity<ApiResponse<PagedResponse<FiscalYearSummaryResponse>>> {
-        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "year"))
+        try {
+            val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "year"))
+            val fiscalYearsPage = fiscalYearService.findByAuditStatusPaged(isAudited, pageable)
 
-        val fiscalYearsPage = fiscalYearService.findByAuditStatusPaged(isAudited, pageable)
+            val pagedResponse = createPagedResponse(fiscalYearsPage) { fiscalYear ->
+                mapToFiscalYearSummaryResponse(fiscalYear)
+            }
 
-        val pagedResponse = createPagedResponse(fiscalYearsPage) { fiscalYear ->
-            mapToFiscalYearSummaryResponse(fiscalYear)
-        }
-
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Fiscal years retrieved successfully",
-                data = pagedResponse
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Fiscal years retrieved successfully",
+                    data = pagedResponse
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving fiscal years by audit status: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving fiscal years",
+                    errors = listOf(e.message ?: "Error occurred while retrieving fiscal years")
+                )
+            )
+        }
     }
 
     @GetMapping("/company/{companyId}/year/{year}")
@@ -147,15 +204,26 @@ class FiscalYearController(
         @PathVariable companyId: Long,
         @PathVariable year: Int
     ): ResponseEntity<ApiResponse<FiscalYearResponse>> {
-        val fiscalYear = fiscalYearService.findByCompanyIdAndYear(companyId, year)
+        try {
+            val fiscalYear = fiscalYearService.findByCompanyIdAndYear(companyId, year)
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Fiscal year retrieved successfully",
-                data = mapToFiscalYearResponse(fiscalYear)
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Fiscal year retrieved successfully",
+                    data = mapToFiscalYearResponse(fiscalYear)
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error retrieving fiscal year by company and year: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse(
+                    success = false,
+                    message = "Fiscal year not found",
+                    errors = listOf(e.message ?: "Fiscal year not found for company and year")
+                )
+            )
+        }
     }
 
     @GetMapping("/validate")
@@ -163,78 +231,100 @@ class FiscalYearController(
         @RequestParam companyId: Long,
         @RequestParam year: Int
     ): ResponseEntity<ApiResponse<FiscalYearValidationResponse>> {
-        // Check if a fiscal year with this company and year already exists
-        val exists = fiscalYearService.findByCompanyId(companyId)
-            .any { it.year == year }
+        try {
+            // Check if a fiscal year with this company and year already exists
+            val exists = fiscalYearService.findByCompanyId(companyId)
+                .any { it.year == year }
 
-        val validation = if (exists) {
-            val company = companyService.findById(companyId)
-            FiscalYearValidationResponse(
-                valid = false,
-                message = "Fiscal year $year already exists for company ${company.name}"
+            val validation = if (exists) {
+                val company = companyService.findById(companyId)
+                FiscalYearValidationResponse(
+                    valid = false,
+                    message = "Fiscal year $year already exists for company ${company.name}"
+                )
+            } else {
+                FiscalYearValidationResponse(
+                    valid = true,
+                    message = null
+                )
+            }
+
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Fiscal year validation completed",
+                    data = validation
+                )
             )
-        } else {
-            FiscalYearValidationResponse(
-                valid = true,
-                message = null
+        } catch (e: Exception) {
+            logger.error("Error validating fiscal year: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ApiResponse(
+                    success = false,
+                    message = "Validation failed",
+                    errors = listOf(e.message ?: "Error occurred during validation")
+                )
             )
         }
-
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Fiscal year validation completed",
-                data = validation
-            )
-        )
     }
 
     @GetMapping("/stats")
     fun getFiscalYearStats(): ResponseEntity<ApiResponse<FiscalYearStatsResponse>> {
-        val allFiscalYears = fiscalYearService.findAll()
+        try {
+            val allFiscalYears = fiscalYearService.findAll()
 
-        val totalFiscalYears = allFiscalYears.size
-        val auditedCount = allFiscalYears.count { it.isAudited }
-        val unauditedCount = totalFiscalYears - auditedCount
+            val totalFiscalYears = allFiscalYears.size
+            val auditedCount = allFiscalYears.count { it.isAudited }
+            val unauditedCount = totalFiscalYears - auditedCount
 
-        val fiscalYearsByCompany = allFiscalYears
-            .groupBy { it.company.name }
-            .mapValues { it.value.size }
+            val fiscalYearsByCompany = allFiscalYears
+                .groupBy { it.company.name }
+                .mapValues { it.value.size }
 
-        val fiscalYearsByYear = allFiscalYears
-            .groupBy { it.year }
-            .mapValues { it.value.size }
+            val fiscalYearsByYear = allFiscalYears
+                .groupBy { it.year }
+                .mapValues { it.value.size }
 
-        // Get statement counts for each fiscal year
-        val yearStatementCounts = allFiscalYears.map { fiscalYear ->
-            YearStatementCount(
-                year = fiscalYear.year,
-                companyName = fiscalYear.company.name,
-                statementCount = fiscalYearService.getStatementCountForFiscalYear(fiscalYear.id!!)
+            // Get statement counts for each fiscal year
+            val yearStatementCounts = allFiscalYears.map { fiscalYear ->
+                YearStatementCount(
+                    year = fiscalYear.year,
+                    companyName = fiscalYear.company.name,
+                    statementCount = fiscalYearService.getStatementCountForFiscalYear(fiscalYear.id!!)
+                )
+            }
+
+            // Sort by statement count (descending) and take top 10
+            val yearsWithMostStatements = yearStatementCounts
+                .sortedByDescending { it.statementCount }
+                .take(10)
+
+            val stats = FiscalYearStatsResponse(
+                totalFiscalYears = totalFiscalYears,
+                auditedCount = auditedCount,
+                unauditedCount = unauditedCount,
+                fiscalYearsByCompany = fiscalYearsByCompany,
+                fiscalYearsByYear = fiscalYearsByYear,
+                yearsWithMostStatements = yearsWithMostStatements
+            )
+
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Fiscal year statistics retrieved successfully",
+                    data = stats
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Error retrieving fiscal year statistics: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving statistics",
+                    errors = listOf(e.message ?: "Error occurred while retrieving statistics")
+                )
             )
         }
-
-        // Sort by statement count (descending) and take top 10
-        val yearsWithMostStatements = yearStatementCounts
-            .sortedByDescending { it.statementCount }
-            .take(10)
-
-        val stats = FiscalYearStatsResponse(
-            totalFiscalYears = totalFiscalYears,
-            auditedCount = auditedCount,
-            unauditedCount = unauditedCount,
-            fiscalYearsByCompany = fiscalYearsByCompany,
-            fiscalYearsByYear = fiscalYearsByYear,
-            yearsWithMostStatements = yearsWithMostStatements
-        )
-
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Fiscal year statistics retrieved successfully",
-                data = stats
-            )
-        )
     }
 
     @PostMapping
@@ -243,31 +333,65 @@ class FiscalYearController(
         @Valid @RequestBody fiscalYearRequest: FiscalYearRequest,
         @AuthenticationPrincipal userDetails: UserDetails
     ): ResponseEntity<ApiResponse<FiscalYearResponse>> {
-        val userId = UUID.fromString(userDetails.username)
+        try {
+            val userId = UUID.fromString(userDetails.username)
 
-        // Get company
-        val company = companyService.findById(fiscalYearRequest.companyId)
+            // Get company
+            val company = companyService.findById(fiscalYearRequest.companyId)
 
-        // Create fiscal year entity
-        val fiscalYear = FiscalYear(
-            id = null,
-            company = company,
-            year = fiscalYearRequest.year,
-            startDate = fiscalYearRequest.startDate,
-            endDate = fiscalYearRequest.endDate,
-            isAudited = fiscalYearRequest.isAudited
-        )
+            // Check if fiscal year already exists for company and year
+            val existingFiscalYears = fiscalYearService.findByCompanyId(fiscalYearRequest.companyId)
+            if (existingFiscalYears.any { it.year == fiscalYearRequest.year }) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                    ApiResponse(
+                        success = false,
+                        message = "Fiscal year ${fiscalYearRequest.year} already exists for company ${company.name}",
+                        errors = listOf("Duplicate fiscal year")
+                    )
+                )
+            }
 
-        // Create fiscal year
-        val createdFiscalYear = fiscalYearService.createFiscalYear(fiscalYear, userId)
+            // Validate start date is before end date
+            if (fiscalYearRequest.startDate.isAfter(fiscalYearRequest.endDate)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    ApiResponse(
+                        success = false,
+                        message = "Start date must be before end date",
+                        errors = listOf("Invalid date range")
+                    )
+                )
+            }
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-            ApiResponse(
-                success = true,
-                message = "Fiscal year created successfully",
-                data = mapToFiscalYearResponse(createdFiscalYear)
+            // Create fiscal year entity
+            val fiscalYear = FiscalYear(
+                id = null,
+                company = company,
+                year = fiscalYearRequest.year,
+                startDate = fiscalYearRequest.startDate,
+                endDate = fiscalYearRequest.endDate,
+                isAudited = fiscalYearRequest.isAudited
             )
-        )
+
+            // Create fiscal year
+            val createdFiscalYear = fiscalYearService.createFiscalYear(fiscalYear, userId)
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(
+                ApiResponse(
+                    success = true,
+                    message = "Fiscal year created successfully",
+                    data = mapToFiscalYearResponse(createdFiscalYear)
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Error creating fiscal year: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error creating fiscal year",
+                    errors = listOf(e.message ?: "Error occurred while creating fiscal year")
+                )
+            )
+        }
     }
 
     @PutMapping("/{id}")
@@ -277,28 +401,50 @@ class FiscalYearController(
         @Valid @RequestBody fiscalYearUpdateRequest: FiscalYearUpdateRequest,
         @AuthenticationPrincipal userDetails: UserDetails
     ): ResponseEntity<ApiResponse<FiscalYearResponse>> {
-        val userId = UUID.fromString(userDetails.username)
+        try {
+            val userId = UUID.fromString(userDetails.username)
 
-        // Get existing fiscal year
-        val existingFiscalYear = fiscalYearService.findById(id)
+            // Get existing fiscal year
+            val existingFiscalYear = fiscalYearService.findById(id)
 
-        // Create updated fiscal year entity
-        val fiscalYear = existingFiscalYear.copy(
-            startDate = fiscalYearUpdateRequest.startDate,
-            endDate = fiscalYearUpdateRequest.endDate,
-            isAudited = fiscalYearUpdateRequest.isAudited
-        )
+            // Validate start date is before end date
+            if (fiscalYearUpdateRequest.startDate.isAfter(fiscalYearUpdateRequest.endDate)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    ApiResponse(
+                        success = false,
+                        message = "Start date must be before end date",
+                        errors = listOf("Invalid date range")
+                    )
+                )
+            }
 
-        // Update fiscal year
-        val updatedFiscalYear = fiscalYearService.updateFiscalYear(fiscalYear, userId)
-
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Fiscal year updated successfully",
-                data = mapToFiscalYearResponse(updatedFiscalYear)
+            // Create updated fiscal year entity
+            val fiscalYear = existingFiscalYear.copy(
+                startDate = fiscalYearUpdateRequest.startDate,
+                endDate = fiscalYearUpdateRequest.endDate,
+                isAudited = fiscalYearUpdateRequest.isAudited
             )
-        )
+
+            // Update fiscal year
+            val updatedFiscalYear = fiscalYearService.updateFiscalYear(fiscalYear, userId)
+
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Fiscal year updated successfully",
+                    data = mapToFiscalYearResponse(updatedFiscalYear)
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Error updating fiscal year: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error updating fiscal year",
+                    errors = listOf(e.message ?: "Error occurred while updating fiscal year")
+                )
+            )
+        }
     }
 
     @PutMapping("/{id}/audit")
@@ -308,24 +454,35 @@ class FiscalYearController(
         @Valid @RequestBody auditRequest: FiscalYearAuditRequest,
         @AuthenticationPrincipal userDetails: UserDetails
     ): ResponseEntity<ApiResponse<FiscalYearResponse>> {
-        val userId = UUID.fromString(userDetails.username)
+        try {
+            val userId = UUID.fromString(userDetails.username)
 
-        val updatedFiscalYear = if (auditRequest.isAudited) {
-            fiscalYearService.markAsAudited(id, userId)
-        } else {
-            fiscalYearService.markAsUnaudited(id, userId)
-        }
+            val updatedFiscalYear = if (auditRequest.isAudited) {
+                fiscalYearService.markAsAudited(id, userId)
+            } else {
+                fiscalYearService.markAsUnaudited(id, userId)
+            }
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = if (auditRequest.isAudited)
-                    "Fiscal year marked as audited successfully"
-                else
-                    "Fiscal year marked as unaudited successfully",
-                data = mapToFiscalYearResponse(updatedFiscalYear)
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = if (auditRequest.isAudited)
+                        "Fiscal year marked as audited successfully"
+                    else
+                        "Fiscal year marked as unaudited successfully",
+                    data = mapToFiscalYearResponse(updatedFiscalYear)
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.error("Error updating fiscal year audit status: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error updating fiscal year audit status",
+                    errors = listOf(e.message ?: "Error occurred while updating audit status")
+                )
+            )
+        }
     }
 
     @DeleteMapping("/{id}")
@@ -334,16 +491,38 @@ class FiscalYearController(
         @PathVariable id: Long,
         @AuthenticationPrincipal userDetails: UserDetails
     ): ResponseEntity<ApiResponse<Void>> {
-        val userId = UUID.fromString(userDetails.username)
+        try {
+            val userId = UUID.fromString(userDetails.username)
 
-        fiscalYearService.deleteFiscalYear(id, userId)
+            // Try to delete the fiscal year
+            fiscalYearService.deleteFiscalYear(id, userId)
 
-        return ResponseEntity.ok(
-            ApiResponse(
-                success = true,
-                message = "Fiscal year deleted successfully"
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Fiscal year deleted successfully"
+                )
             )
-        )
+        } catch (e: IllegalStateException) {
+            // Fiscal year has associated statements
+            logger.error("Cannot delete fiscal year: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                ApiResponse(
+                    success = false,
+                    message = "Cannot delete fiscal year because it has associated financial statements",
+                    errors = listOf(e.message ?: "Fiscal year has associated statements")
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Error deleting fiscal year: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error deleting fiscal year",
+                    errors = listOf(e.message ?: "Error occurred while deleting fiscal year")
+                )
+            )
+        }
     }
 
     /**
@@ -393,4 +572,3 @@ class FiscalYearController(
         )
     }
 }
-
