@@ -5,12 +5,15 @@ import com.fraudit.fraudit.repository.DocumentStorageRepository
 import com.fraudit.fraudit.repository.FinancialStatementRepository
 import com.fraudit.fraudit.service.AuditLogService
 import com.fraudit.fraudit.service.DocumentStorageService
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
+import java.io.File
 import java.io.IOException
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.time.OffsetDateTime
@@ -25,6 +28,7 @@ class DocumentStorageServiceImpl(
     private val auditLogService: AuditLogService,
     @Value("\${document.upload.dir:uploads}") private val uploadDir: String
 ) : DocumentStorageService {
+    private val logger = LoggerFactory.getLogger(DocumentStorageServiceImpl::class.java)
 
     override fun findAll(): List<DocumentStorage> = documentStorageRepository.findAll()
 
@@ -43,6 +47,7 @@ class DocumentStorageServiceImpl(
     @Transactional
     override fun storeDocument(statementId: Long, file: MultipartFile, userId: UUID): DocumentStorage {
         try {
+            // Get the financial statement
             val statement = financialStatementRepository.findById(statementId)
                 .orElseThrow { EntityNotFoundException("Financial statement not found with id: $statementId") }
 
@@ -50,11 +55,12 @@ class DocumentStorageServiceImpl(
             val uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize()
             Files.createDirectories(uploadPath)
 
-            // Generate a unique filename
+            // Generate a unique filename with timestamp to prevent collisions
             val timestamp = OffsetDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
             val originalFilename = file.originalFilename ?: "unknown-file"
             val fileExtension = originalFilename.substringAfterLast(".", "")
-            val fileName = "${statement.fiscalYear.company.stockCode}_${statement.fiscalYear.year}_$timestamp.$fileExtension"
+            val sanitizedFilename = sanitizeFilename(originalFilename.substringBeforeLast("."))
+            val fileName = "${statement.fiscalYear.company.stockCode}_${statement.fiscalYear.year}_${sanitizedFilename}_$timestamp.$fileExtension"
 
             // Save the file on the server
             val targetLocation = uploadPath.resolve(fileName)
@@ -73,6 +79,7 @@ class DocumentStorageServiceImpl(
 
             val savedDocument = documentStorageRepository.save(document)
 
+            // Log the document upload
             auditLogService.logEvent(
                 userId = userId,
                 action = "UPLOAD",
@@ -83,7 +90,8 @@ class DocumentStorageServiceImpl(
 
             return savedDocument
         } catch (ex: IOException) {
-            throw RuntimeException("Failed to store file", ex)
+            logger.error("Failed to store file", ex)
+            throw RuntimeException("Failed to store file: ${ex.message}", ex)
         }
     }
 
@@ -99,15 +107,17 @@ class DocumentStorageServiceImpl(
             // Delete database record
             documentStorageRepository.delete(document)
 
+            // Log the document deletion
             auditLogService.logEvent(
                 userId = userId,
                 action = "DELETE",
                 entityType = "DOCUMENT",
                 entityId = id.toString(),
-                details = "Deleted document: ${document.fileName}"
+                details = "Deleted document: ${document.fileName} from statement id: ${document.statement.id}"
             )
         } catch (ex: IOException) {
-            throw RuntimeException("Failed to delete file", ex)
+            logger.error("Failed to delete file", ex)
+            throw RuntimeException("Failed to delete file: ${ex.message}", ex)
         }
     }
 
@@ -115,10 +125,24 @@ class DocumentStorageServiceImpl(
         val document = findById(id)
 
         try {
-            val filePath = Paths.get(document.filePath)
+            val filePath = Path.of(document.filePath)
+            if (!Files.exists(filePath)) {
+                throw IOException("File not found: ${document.filePath}")
+            }
             return Files.readAllBytes(filePath)
         } catch (ex: IOException) {
-            throw RuntimeException("Failed to read file", ex)
+            logger.error("Failed to read file", ex)
+            throw RuntimeException("Failed to read file: ${ex.message}", ex)
         }
+    }
+
+    /**
+     * Sanitize filename to prevent path traversal attacks and ensure valid filenames
+     */
+    private fun sanitizeFilename(filename: String): String {
+        // Replace any character that isn't alphanumeric, a dash, or an underscore with an underscore
+        val sanitized = filename.replace(Regex("[^a-zA-Z0-9\\-_]"), "_")
+        // Limit length to avoid extremely long filenames
+        return if (sanitized.length > 100) sanitized.substring(0, 100) else sanitized
     }
 }
