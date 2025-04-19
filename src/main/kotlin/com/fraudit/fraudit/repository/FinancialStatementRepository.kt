@@ -122,4 +122,10 @@ interface FinancialStatementRepository : JpaRepository<FinancialStatement, Long>
      * Count statements by fiscal year ID
      */
     fun countByFiscalYearId(fiscalYearId: Long): Long
+
+    /**
+     * Count statements by user ID
+     */
+    fun countByUserId(userId: UUID): Long
+
 }

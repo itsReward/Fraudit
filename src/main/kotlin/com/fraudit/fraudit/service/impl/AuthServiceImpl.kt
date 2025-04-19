@@ -1,14 +1,8 @@
 package com.fraudit.fraudit.service.impl
 
 import com.fraudit.fraudit.domain.entity.User
-import com.fraudit.fraudit.domain.enum.UserRole
-import com.fraudit.fraudit.dto.auth.LoginRequest
-import com.fraudit.fraudit.dto.auth.LoginResponse
-import com.fraudit.fraudit.dto.auth.RegisterRequest
-import com.fraudit.fraudit.dto.auth.TokenRefreshRequest
-import com.fraudit.fraudit.dto.auth.TokenRefreshResponse
+import com.fraudit.fraudit.dto.auth.*
 import com.fraudit.fraudit.repository.UserRepository
-import com.fraudit.fraudit.service.AuditLogService
 import com.fraudit.fraudit.service.AuthService
 import com.fraudit.fraudit.service.JwtTokenService
 import com.fraudit.fraudit.service.RefreshTokenService
@@ -21,53 +15,47 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
-
 @Service
 class AuthServiceImpl(
     private val authenticationManager: AuthenticationManager,
     private val userRepository: UserRepository,
     private val jwtTokenService: JwtTokenService,
     private val refreshTokenService: RefreshTokenService,
-    private val passwordEncoder: PasswordEncoder,
-    private val auditLogService: AuditLogService
+    private val passwordEncoder: PasswordEncoder
 ) : AuthService {
 
     @Transactional
     override fun authenticate(loginRequest: LoginRequest): LoginResponse {
-        // Authenticate user
+        // Try to authenticate with username/email and password
         val authentication = authenticationManager.authenticate(
             UsernamePasswordAuthenticationToken(loginRequest.username, loginRequest.password)
         )
 
-        // Set authentication in context
+        // Set authentication in security context
         SecurityContextHolder.getContext().authentication = authentication
 
-        // Find user
+        // Find user by username or email
         val user = userRepository.findByUsernameOrEmail(loginRequest.username, loginRequest.username)
             .orElseThrow { BadCredentialsException("Invalid username or password") }
 
-        // Generate JWT token
+        // Check if user is active
+        if (!user.active) {
+            throw BadCredentialsException("User account is deactivated")
+        }
+
+        // Generate JWT access token
         val accessToken = jwtTokenService.generateAccessToken(user)
 
-        // Generate refresh token if requested
+        // Generate refresh token if requested (remember me)
         val refreshToken = if (loginRequest.rememberMe) {
             refreshTokenService.createRefreshToken(user.id)
         } else null
 
-        // Log login event
-        auditLogService.logEvent(
-            userId = user.id,
-            action = "LOGIN",
-            entityType = "USER",
-            entityId = user.id.toString(),
-            details = "User logged in"
-        )
+        // Get token expiration time
+        val expiryDate = jwtTokenService.getExpirationFromToken(accessToken)
+        val expiresAt = expiryDate?.time ?: System.currentTimeMillis() + 86400000 // Default to 24 hours
 
-        // Expiry timestamp (from JWT token)
-        val expiration = jwtTokenService.getExpirationFromToken(accessToken)
-        val expiresAt = expiration?.time ?: (System.currentTimeMillis() + 86400000) // 24 hours
-
-        // Return login response
+        // Create login response
         return LoginResponse(
             userId = user.id,
             username = user.username,
@@ -104,24 +92,13 @@ class AuthServiceImpl(
             active = true
         )
 
-        // Save user
-        val savedUser = userRepository.save(user)
-
-        // Log registration event
-        auditLogService.logEvent(
-            userId = savedUser.id,
-            action = "REGISTER",
-            entityType = "USER",
-            entityId = savedUser.id.toString(),
-            details = "User registered"
-        )
-
-        return savedUser
+        // Save and return the new user
+        return userRepository.save(user)
     }
 
     @Transactional
     override fun refreshToken(tokenRefreshRequest: TokenRefreshRequest): TokenRefreshResponse {
-        // Verify refresh token
+        // Verify refresh token and get user ID
         val userId = refreshTokenService.verifyRefreshToken(tokenRefreshRequest.refreshToken)
             ?: throw IllegalArgumentException("Invalid refresh token")
 
@@ -129,37 +106,36 @@ class AuthServiceImpl(
         val user = userRepository.findById(userId)
             .orElseThrow { IllegalArgumentException("User not found") }
 
-        // Generate new tokens
+        // Check if user is active
+        if (!user.active) {
+            throw IllegalArgumentException("User account is deactivated")
+        }
+
+        // Generate new JWT access token
         val accessToken = jwtTokenService.generateAccessToken(user)
-        val refreshToken = refreshTokenService.createRefreshToken(user.id)
+
+        // Generate new refresh token
+        val newRefreshToken = refreshTokenService.createRefreshToken(user.id)
 
         // Delete old refresh token
         refreshTokenService.deleteRefreshToken(tokenRefreshRequest.refreshToken)
 
-        // Expiry timestamp (from JWT token)
-        val expiration = jwtTokenService.getExpirationFromToken(accessToken)
-        val expiresAt = expiration?.time ?: (System.currentTimeMillis() + 86400000) // 24 hours
+        // Get token expiration time
+        val expiryDate = jwtTokenService.getExpirationFromToken(accessToken)
+        val expiresAt = expiryDate?.time ?: System.currentTimeMillis() + 86400000 // Default to 24 hours
 
+        // Create token refresh response
         return TokenRefreshResponse(
             token = accessToken,
-            refreshToken = refreshToken,
+            refreshToken = newRefreshToken,
             expiresAt = expiresAt
         )
     }
 
     @Transactional
     override fun logout(userId: UUID) {
-        // Delete all refresh tokens for user
+        // Delete all refresh tokens for user (effectively logging them out)
         refreshTokenService.deleteAllUserRefreshTokens(userId)
-
-        // Log logout event
-        auditLogService.logEvent(
-            userId = userId,
-            action = "LOGOUT",
-            entityType = "USER",
-            entityId = userId.toString(),
-            details = "User logged out"
-        )
     }
 
     @Transactional
@@ -168,7 +144,7 @@ class AuthServiceImpl(
         val user = userRepository.findById(userId)
             .orElseThrow { IllegalArgumentException("User not found") }
 
-        // Check current password
+        // Verify current password
         if (!passwordEncoder.matches(currentPassword, user.password)) {
             return false
         }
@@ -181,18 +157,13 @@ class AuthServiceImpl(
         // Save user
         userRepository.save(updatedUser)
 
-        // Delete all refresh tokens for user (force re-login)
+        // Invalidate all sessions (force re-login)
         refreshTokenService.deleteAllUserRefreshTokens(userId)
 
-        // Log password change event
-        auditLogService.logEvent(
-            userId = userId,
-            action = "PASSWORD_CHANGE",
-            entityType = "USER",
-            entityId = userId.toString(),
-            details = "User changed password"
-        )
-
         return true
+    }
+
+    override fun validateToken(token: String): Boolean {
+        return jwtTokenService.validateToken(token)
     }
 }
