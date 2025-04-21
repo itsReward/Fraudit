@@ -13,6 +13,9 @@ import java.time.OffsetDateTime
 import java.util.UUID
 import jakarta.persistence.EntityNotFoundException
 import org.json.JSONObject
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageImpl
+import org.springframework.data.domain.Pageable
 
 @Service
 class FinancialAnalysisServiceImpl(
@@ -1000,5 +1003,92 @@ class FinancialAnalysisServiceImpl(
         )
 
         return alerts
+    }
+
+    override fun getFraudRiskAssessmentById(id: Long): FraudRiskAssessment {
+        return fraudRiskAssessmentRepository.findById(id)
+            .orElseThrow { EntityNotFoundException("Fraud risk assessment not found with id: $id") }
+    }
+
+    override fun getFraudRiskAssessmentByStatementId(statementId: Long): FraudRiskAssessment? {
+        return fraudRiskAssessmentRepository.findByStatementId(statementId)
+    }
+
+    override fun getAllFraudRiskAssessments(pageable: Pageable): Page<FraudRiskAssessment> {
+        return fraudRiskAssessmentRepository.findAll(pageable)
+    }
+
+    override fun getFraudRiskAssessmentsByCompany(companyId: Long, pageable: Pageable): Page<FraudRiskAssessment> {
+        val assessments = fraudRiskAssessmentRepository.findLatestByCompanyId(companyId)
+
+        // Convert list to Page
+        val start = pageable.offset.toInt()
+        val end = minOf(start + pageable.pageSize, assessments.size)
+
+        val pagedItems = if (start < assessments.size) {
+            assessments.subList(start, end)
+        } else {
+            emptyList()
+        }
+
+        return PageImpl(pagedItems, pageable, assessments.size.toLong())
+    }
+
+    override fun getFraudRiskAssessmentsByRiskLevel(riskLevel: RiskLevel, pageable: Pageable): Page<FraudRiskAssessment> {
+        // Get all assessments for the given risk level (this returns a List)
+        val allAssessments = fraudRiskAssessmentRepository.findByRiskLevel(riskLevel)
+
+        // Manual pagination since the repository method doesn't support it
+        val start = pageable.offset.toInt()
+        val end = minOf(start + pageable.pageSize, allAssessments.size)
+
+        val pagedItems = if (start < allAssessments.size) {
+            allAssessments.subList(start, end)
+        } else {
+            emptyList()
+        }
+
+        // Create a Page from the list
+        return PageImpl(pagedItems, pageable, allAssessments.size.toLong())
+    }
+
+    override fun getFraudRiskAssessmentsByCompanyAndRiskLevel(
+        companyId: Long,
+        riskLevel: RiskLevel,
+        pageable: Pageable
+    ): Page<FraudRiskAssessment> {
+        // Get all assessments for the company
+        val companyAssessments = fraudRiskAssessmentRepository.findLatestByCompanyId(companyId)
+
+        // Filter by risk level
+        val filteredAssessments = companyAssessments.filter { it.riskLevel == riskLevel }
+
+        // Convert list to Page
+        val start = pageable.offset.toInt()
+        val end = minOf(start + pageable.pageSize, filteredAssessments.size)
+
+        val pagedItems = if (start < filteredAssessments.size) {
+            filteredAssessments.subList(start, end)
+        } else {
+            emptyList()
+        }
+
+        return PageImpl(pagedItems, pageable, filteredAssessments.size.toLong())
+    }
+
+    override fun getFinancialRatios(statementId: Long): FinancialRatios? {
+        return financialRatiosRepository.findByStatementId(statementId)
+    }
+
+    override fun getAltmanZScore(statementId: Long): AltmanZScore? {
+        return altmanZScoreRepository.findByStatementId(statementId)
+    }
+
+    override fun getBeneishMScore(statementId: Long): BeneishMScore? {
+        return beneishMScoreRepository.findByStatementId(statementId)
+    }
+
+    override fun getPiotroskiFScore(statementId: Long): PiotroskiFScore? {
+        return piotroskiFScoreRepository.findByStatementId(statementId)
     }
 }
