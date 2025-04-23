@@ -252,9 +252,18 @@ class FinancialAnalysisServiceImpl(
     }
 
     private fun calculatePriceToEarnings(data: FinancialData): BigDecimal? {
-        if (data.marketPricePerShare == null || data.earningsPerShare == null || data.earningsPerShare == BigDecimal.ZERO) return null
+        if (data.marketPricePerShare == null ||
+            data.earningsPerShare == null ||
+            data.earningsPerShare!!.compareTo(BigDecimal.ZERO) == 0) {
+            return null
+        }
 
-        return data.marketPricePerShare!!.divide(data.earningsPerShare, 4, RoundingMode.HALF_UP)
+        return try {
+            data.marketPricePerShare!!.divide(data.earningsPerShare, 4, RoundingMode.HALF_UP)
+        } catch (e: ArithmeticException) {
+            // Log that division by zero occurred
+            null
+        }
     }
 
     private fun calculatePriceToBook(data: FinancialData): BigDecimal? {

@@ -128,4 +128,43 @@ interface FinancialStatementRepository : JpaRepository<FinancialStatement, Long>
      */
     fun countByUserId(userId: UUID): Long
 
+    /**
+     * Find statements by company ID and status
+     * (New method for batch processing)
+     */
+    fun findByFiscalYearCompanyIdAndStatus(companyId: Long, status: StatementStatus): List<FinancialStatement>
+
+    /**
+     * Find statements by company ID and status with pagination
+     * (New method for batch processing)
+     */
+    fun findByFiscalYearCompanyIdAndStatus(companyId: Long, status: StatementStatus, pageable: Pageable): Page<FinancialStatement>
+
+    /**
+     * Find statements by financial data existence
+     * (New method to find statements with financial data)
+     */
+    @Query("SELECT fs FROM FinancialStatement fs WHERE fs.financialData IS NOT NULL")
+    fun findByFinancialDataExists(): List<FinancialStatement>
+
+    /**
+     * Find statements by financial data existence with pagination
+     * (New method to find statements with financial data)
+     */
+    @Query("SELECT fs FROM FinancialStatement fs WHERE fs.financialData IS NOT NULL")
+    fun findByFinancialDataExists(pageable: Pageable): Page<FinancialStatement>
+
+    /**
+     * Find statements by financial data existence but no risk assessment
+     * (New method to find statements that need analysis)
+     */
+    @Query("SELECT fs FROM FinancialStatement fs WHERE fs.financialData IS NOT NULL AND fs.fraudRiskAssessment IS NULL")
+    fun findByFinancialDataExistsAndRiskAssessmentNull(): List<FinancialStatement>
+
+    /**
+     * Find statements by financial data existence but no risk assessment with pagination
+     * (New method to find statements that need analysis)
+     */
+    @Query("SELECT fs FROM FinancialStatement fs WHERE fs.financialData IS NOT NULL AND fs.fraudRiskAssessment IS NULL")
+    fun findByFinancialDataExistsAndRiskAssessmentNull(pageable: Pageable): Page<FinancialStatement>
 }

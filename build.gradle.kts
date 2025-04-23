@@ -58,6 +58,18 @@ dependencies {
 
     testRuntimeOnly("com.h2database:h2")
 
+
+    // Weka ML Library
+    implementation("nz.ac.waikato.cms.weka:weka-stable:3.8.6")
+
+    // Additional ML-related libraries
+    implementation("org.apache.commons:commons-math3:3.6.1")
+    implementation("com.googlecode.matrix-toolkits-java:mtj:1.0.4")
+
+    // For CSV processing
+    implementation("org.apache.commons:commons-csv:1.9.0")
+
+
     // SpringDoc version compatible with Spring Boot 3.2.5
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0")
     implementation("org.json:json:20240303")

@@ -6,6 +6,7 @@ import com.fraudit.fraudit.domain.enum.StatementStatus
 import com.fraudit.fraudit.repository.FinancialDataRepository
 import com.fraudit.fraudit.repository.FinancialStatementRepository
 import com.fraudit.fraudit.service.AuditLogService
+import com.fraudit.fraudit.service.FinancialAnalysisService
 import com.fraudit.fraudit.service.FinancialDataService
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.Page
@@ -22,7 +23,8 @@ import jakarta.persistence.EntityNotFoundException
 class FinancialDataServiceImpl(
     private val financialDataRepository: FinancialDataRepository,
     private val financialStatementRepository: FinancialStatementRepository,
-    private val auditLogService: AuditLogService
+    private val auditLogService: AuditLogService,
+    private val financialAnalysisService: FinancialAnalysisService // Injecting FinancialAnalysisService
 ) : FinancialDataService {
     private val logger = LoggerFactory.getLogger(FinancialDataServiceImpl::class.java)
 
@@ -66,7 +68,37 @@ class FinancialDataServiceImpl(
             details = "Created financial data for statement id: ${financialData.statement.id}"
         )
 
-        return savedData
+        // Automatically calculate growth rates if possible
+        try {
+            val dataWithGrowthRates = calculateGrowthRates(savedData.statement.id!!, userId)
+
+            // Automatically run the full analysis pipeline
+            logger.info("Automatically starting financial analysis for statement id: ${savedData.statement.id}")
+            try {
+                financialAnalysisService.calculateAllScoresAndRatios(savedData.statement.id!!, userId)
+                logger.info("Automatic financial analysis completed successfully for statement id: ${savedData.statement.id}")
+
+                // Log the automatic analysis
+                auditLogService.logEvent(
+                    userId = userId,
+                    action = "AUTO_ANALYZE",
+                    entityType = "FINANCIAL_STATEMENT",
+                    entityId = savedData.statement.id.toString(),
+                    details = "Automatically performed complete financial analysis after data creation"
+                )
+
+                // Return the data with growth rates
+                return dataWithGrowthRates
+            } catch (e: Exception) {
+                logger.error("Automatic financial analysis failed for statement id: ${savedData.statement.id}", e)
+                // Return the data with growth rates even if full analysis fails
+                return dataWithGrowthRates
+            }
+        } catch (e: Exception) {
+            logger.warn("Could not calculate growth rates: ${e.message}", e)
+            // Return the saved data if growth rates calculation fails
+            return savedData
+        }
     }
 
     @Transactional
@@ -88,7 +120,37 @@ class FinancialDataServiceImpl(
             details = "Updated financial data for statement id: ${financialData.statement.id}"
         )
 
-        return savedData
+        // Automatically calculate growth rates if possible
+        try {
+            val dataWithGrowthRates = calculateGrowthRates(savedData.statement.id!!, userId)
+
+            // Automatically run the full analysis pipeline after update
+            logger.info("Automatically starting financial analysis after update for statement id: ${savedData.statement.id}")
+            try {
+                financialAnalysisService.calculateAllScoresAndRatios(savedData.statement.id!!, userId)
+                logger.info("Automatic financial analysis completed successfully after update for statement id: ${savedData.statement.id}")
+
+                // Log the automatic analysis
+                auditLogService.logEvent(
+                    userId = userId,
+                    action = "AUTO_ANALYZE",
+                    entityType = "FINANCIAL_STATEMENT",
+                    entityId = savedData.statement.id.toString(),
+                    details = "Automatically performed complete financial analysis after data update"
+                )
+
+                // Return the data with growth rates
+                return dataWithGrowthRates
+            } catch (e: Exception) {
+                logger.error("Automatic financial analysis failed after update for statement id: ${savedData.statement.id}", e)
+                // Return the data with growth rates even if full analysis fails
+                return dataWithGrowthRates
+            }
+        } catch (e: Exception) {
+            logger.warn("Could not calculate growth rates after update: ${e.message}", e)
+            // Return the saved data if growth rates calculation fails
+            return savedData
+        }
     }
 
     @Transactional
