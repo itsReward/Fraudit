@@ -6,6 +6,8 @@ import com.fraudit.fraudit.dto.common.PagedResponse
 import com.fraudit.fraudit.dto.company.*
 import com.fraudit.fraudit.service.CompanyService
 import jakarta.validation.Valid
+import org.apache.juli.logging.Log
+import org.apache.juli.logging.LogFactory
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.http.HttpStatus
@@ -21,6 +23,8 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/companies")
 class CompanyController(private val companyService: CompanyService) {
+
+    val logger: Log = LogFactory.getLog(CompanyController::class.java)
 
     @GetMapping
     fun getAllCompanies(
@@ -39,6 +43,8 @@ class CompanyController(private val companyService: CompanyService) {
         val pagedResponse = createPagedResponse(companiesPage) { company ->
             mapToCompanySummaryResponse(company)
         }
+
+        logger.info("Retrieved ${pagedResponse.content.size} companies")
 
         return ResponseEntity.ok(
             ApiResponse(
