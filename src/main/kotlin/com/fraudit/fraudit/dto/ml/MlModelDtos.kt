@@ -138,3 +138,34 @@ data class StatementPrediction(
     val riskLevel: String,
     val topIndicators: List<String>
 )
+
+
+/**
+ * Request DTO for batch feature generation
+ */
+data class GenerateFeaturesRequest(
+    @field:NotEmpty(message = "At least one statement ID is required")
+    @field:Size(max = 5000, message = "Maximum of 5000 statement IDs allowed per batch")
+    val statementIds: List<Long>
+)
+
+/**
+ * Response DTO for batch feature generation
+ */
+data class GenerateFeaturesResponse(
+    val totalStatements: Int,
+    val processedCount: Int,
+    val successCount: Int,
+    val failureCount: Int,
+    val errors: Map<Long, String>
+)
+
+/**
+ * Response DTO for feature details
+ */
+data class FeatureDetailsResponse(
+    val featuresId: Long,
+    val statementId: Long,
+    val featureCount: Int,
+    val createdAt: java.time.OffsetDateTime
+)

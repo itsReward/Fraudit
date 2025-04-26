@@ -31,6 +31,7 @@ class MlServiceImpl(
     private val mlModelRepository: MlModelRepository,
     private val mlFeaturesRepository: MlFeaturesRepository,
     private val mlPredictionRepository: MlPredictionRepository,
+    private val mlFeatureService: MlFeatureService,
     private val financialStatementRepository: FinancialStatementRepository,
     private val auditLogService: AuditLogService
 ) {
@@ -49,6 +50,41 @@ class MlServiceImpl(
     }
 
     /**
+     * Ensure all statements have ML features before training
+     */
+    private fun ensureFeatures(
+        trainingStatementIds: List<Long>,
+        mlFeatureService: MlFeatureService,
+        userId: UUID
+    ): Int {
+        logger.info("Checking ML features for ${trainingStatementIds.size} training statements")
+
+        // Check which statements already have features
+        val featureStatus = mlFeatureService.checkFeaturesExistence(trainingStatementIds)
+        val missingFeatures = featureStatus.filter { !it.value }.map { it.key }
+
+        if (missingFeatures.isNotEmpty()) {
+            logger.info("Generating missing ML features for ${missingFeatures.size} statements")
+
+            // Generate features for statements that don't have them
+            val result = mlFeatureService.generateFeaturesForStatements(missingFeatures, userId)
+
+            logger.info("Feature generation completed: ${result.successCount} successful, ${result.failureCount} failed")
+
+            if (result.failureCount > 0) {
+                logger.warn("Failed to generate features for some statements: ${result.errors}")
+            }
+
+            return result.successCount
+        }
+
+        logger.info("All ${trainingStatementIds.size} statements already have ML features")
+        return 0
+    }
+
+
+
+    /**
      * Train a new fraud detection model using historical data
      */
     @Transactional
@@ -60,6 +96,11 @@ class MlServiceImpl(
     ): MlModel {
         // 1. Prepare attributes for WEKA
         val attributes = createAttributes()
+        // Call ensureFeatures to make sure all statements have features
+        val generatedFeatures = ensureFeatures(trainingStatementIds, mlFeatureService, userId)
+        logger.info("Ready to train with ${trainingStatementIds.size} statements (${generatedFeatures} features newly generated)")
+
+
         val trainingDataset = Instances("FraudDetectionTrainingData", attributes, trainingStatementIds.size)
         trainingDataset.setClassIndex(trainingDataset.numAttributes() - 1)
 
@@ -75,7 +116,22 @@ class MlServiceImpl(
 
         // 4. Perform cross-validation evaluation
         val evaluation = Evaluation(trainingData)
-        evaluation.crossValidateModel(randomForest, trainingData, 10, Random(1))
+        val folds = Math.min(5, trainingData.numInstances() / 2)
+        if (folds < 2) {
+            // Not enough data for cross-validation, use percentage split instead
+            val splitPercent = 70  // 70% training, 30% testing
+            val train = trainingData.trainCV(1, splitPercent, Random(1))
+            val test = trainingData.testCV(1, splitPercent)
+
+            // Build classifier on training set
+            randomForest.buildClassifier(train)
+
+            // Evaluate on test set
+            evaluation.evaluateModel(randomForest, test)
+        } else {
+            // Use cross-validation with appropriate number of folds
+            evaluation.crossValidateModel(randomForest, trainingData, folds, Random(1))
+        }
 
         // 5. Train on full dataset
         randomForest.buildClassifier(trainingData)
@@ -287,6 +343,13 @@ class MlServiceImpl(
                 instance.setValue(attributes.size - 1, if (isFraud) "fraud" else "non_fraud")
 
                 dataset.add(instance)
+
+                // In prepareTrainingData method of MlServiceImpl
+                // After processing all statements
+                logger.info("Prepared ${dataset.numInstances()} instances for training")
+                if (dataset.numInstances() == 0) {
+                    throw IllegalStateException("No valid training instances found. Check your statement IDs and ensure they have ML features.")
+                }
             } catch (e: Exception) {
                 // Log error and continue with next statement
                 println("Error processing statement $statementId: ${e.message}")

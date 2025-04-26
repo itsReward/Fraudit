@@ -34,7 +34,7 @@ data class FinancialStatement(
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
-    val status: StatementStatus = StatementStatus.PENDING,
+    var status: StatementStatus = StatementStatus.PENDING,
 
     @OneToOne(mappedBy = "statement", cascade = [CascadeType.ALL], orphanRemoval = true)
     val financialData: FinancialData? = null,
