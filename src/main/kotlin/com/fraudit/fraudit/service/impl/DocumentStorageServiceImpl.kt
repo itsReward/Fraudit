@@ -7,6 +7,8 @@ import com.fraudit.fraudit.service.AuditLogService
 import com.fraudit.fraudit.service.DocumentStorageService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
@@ -31,6 +33,8 @@ class DocumentStorageServiceImpl(
     private val logger = LoggerFactory.getLogger(DocumentStorageServiceImpl::class.java)
 
     override fun findAll(): List<DocumentStorage> = documentStorageRepository.findAll()
+
+    override fun findAllPaged(pageable: Pageable): Page<DocumentStorage> = documentStorageRepository.findAll(pageable)
 
     override fun findById(id: Long): DocumentStorage = documentStorageRepository.findById(id)
         .orElseThrow { EntityNotFoundException("Document not found with id: $id") }

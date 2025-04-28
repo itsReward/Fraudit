@@ -1,12 +1,16 @@
 package com.fraudit.fraudit.controller
 
 import com.fraudit.fraudit.dto.common.ApiResponse
+import com.fraudit.fraudit.dto.common.PagedResponse
 import com.fraudit.fraudit.dto.document.*
 import com.fraudit.fraudit.service.DocumentStorageService
 import com.fraudit.fraudit.service.FinancialStatementService
 import org.slf4j.LoggerFactory
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.core.io.Resource
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -25,6 +29,64 @@ class DocumentController(
     private val financialStatementService: FinancialStatementService
 ) {
     private val logger = LoggerFactory.getLogger(DocumentController::class.java)
+
+    @GetMapping
+    fun getAllDocuments(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "10") size: Int,
+        @RequestParam(defaultValue = "uploadDate") sortBy: String,
+        @RequestParam(defaultValue = "DESC") sortDirection: String
+    ): ResponseEntity<ApiResponse<PagedResponse<DocumentResponse>>> {
+        try {
+            // Create pageable object with sorting
+            val direction = if (sortDirection.equals("ASC", ignoreCase = true))
+                Sort.Direction.ASC else Sort.Direction.DESC
+            val pageable = PageRequest.of(page, size, Sort.by(direction, sortBy))
+
+            // Get paginated documents
+            val documentsPage = documentStorageService.findAllPaged(pageable)
+
+            // Map to response DTOs
+            val documentResponses = documentsPage.content.map { document ->
+                DocumentResponse(
+                    id = document.id!!,
+                    statementId = document.statement.id!!,
+                    fileName = document.fileName,
+                    fileType = document.fileType,
+                    fileSize = document.fileSize,
+                    uploadDate = document.uploadDate
+                )
+            }
+
+            // Create paged response
+            val pagedResponse = PagedResponse(
+                content = documentResponses,
+                page = documentsPage.number,
+                size = documentsPage.size,
+                totalElements = documentsPage.totalElements,
+                totalPages = documentsPage.totalPages,
+                first = documentsPage.isFirst,
+                last = documentsPage.isLast
+            )
+
+            return ResponseEntity.ok(
+                ApiResponse(
+                    success = true,
+                    message = "Documents retrieved successfully",
+                    data = pagedResponse
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Error retrieving documents: ${e.message}", e)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ApiResponse(
+                    success = false,
+                    message = "Error retrieving documents",
+                    errors = listOf(e.message ?: "Unknown error occurred")
+                )
+            )
+        }
+    }
 
     @GetMapping("/statement/{statementId}")
     fun getDocumentsByStatementId(@PathVariable statementId: Long): ResponseEntity<ApiResponse<List<DocumentResponse>>> {

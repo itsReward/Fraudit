@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.WebRequest
+import org.springframework.web.multipart.MaxUploadSizeExceededException
 import java.time.OffsetDateTime
 
 @RestControllerAdvice
@@ -130,4 +131,12 @@ class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse)
     }
+
+    @ExceptionHandler(MaxUploadSizeExceededException::class)
+    fun handleMaxSizeException(exc: MaxUploadSizeExceededException, request: WebRequest): ResponseEntity<Any> {
+        return ResponseEntity
+            .status(HttpStatus.PAYLOAD_TOO_LARGE)
+            .body("File size exceeds the maximum allowed limit")
+    }
+
 }
