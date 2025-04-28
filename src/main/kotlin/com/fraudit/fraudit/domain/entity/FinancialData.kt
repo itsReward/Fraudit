@@ -210,4 +210,19 @@ data class FinancialData(
     @UpdateTimestamp
     @Column(name = "updated_at")
     val updatedAt: OffsetDateTime? = null
-)
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is FinancialData) return false
+        if (id != null && other.id != null) return id == other.id
+        return false
+    }
+
+    override fun hashCode(): Int {
+        return id?.hashCode() ?: 0
+    }
+
+    override fun toString(): String {
+        return "FinancialData(id=$id)"
+    }
+}

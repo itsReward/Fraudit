@@ -45,15 +45,40 @@ class FraudRiskController(
 
             // Get risk assessments with optional filtering
             val assessmentsPage = if (companyId != null && riskLevel != null) {
-                financialAnalysisService.getFraudRiskAssessmentsByCompanyAndRiskLevel(
-                    companyId,
-                    RiskLevel.valueOf(riskLevel),
-                    pageable
-                )
+                try {
+                    financialAnalysisService.getFraudRiskAssessmentsByCompanyAndRiskLevel(
+                        companyId,
+                        getRiskLevelFromString(riskLevel),
+                        pageable
+                    )
+                } catch (e: IllegalArgumentException) {
+                    logger.warn("Invalid risk level provided: $riskLevel")
+                    return ResponseEntity.badRequest().body(
+                        ApiResponse(
+                            success = false,
+                            message = "Invalid risk level",
+                            errors = listOf("'$riskLevel' is not a valid risk level")
+                        )
+                    )
+                }
             } else if (companyId != null) {
                 financialAnalysisService.getFraudRiskAssessmentsByCompany(companyId, pageable)
             } else if (riskLevel != null) {
-                financialAnalysisService.getFraudRiskAssessmentsByRiskLevel(RiskLevel.valueOf(riskLevel), pageable)
+                try {
+                    financialAnalysisService.getFraudRiskAssessmentsByRiskLevel(
+                        getRiskLevelFromString(riskLevel),
+                        pageable
+                    )
+                } catch (e: IllegalArgumentException) {
+                    logger.warn("Invalid risk level provided: $riskLevel")
+                    return ResponseEntity.badRequest().body(
+                        ApiResponse(
+                            success = false,
+                            message = "Invalid risk level",
+                            errors = listOf("'$riskLevel' is not a valid risk level")
+                        )
+                    )
+                }
             } else {
                 financialAnalysisService.getAllFraudRiskAssessments(pageable)
             }
@@ -97,6 +122,21 @@ class FraudRiskController(
                 )
             )
         }
+    }
+
+    /**
+     * Helper method to safely convert a string to RiskLevel enum
+     * Handles null, empty strings, and case-insensitive matching
+     */
+    private fun getRiskLevelFromString(riskLevelStr: String?): RiskLevel {
+        if (riskLevelStr.isNullOrBlank()) {
+            throw IllegalArgumentException("Risk level cannot be null or empty")
+        }
+
+        // Try to match case-insensitive
+        return RiskLevel.values().find {
+            it.name.equals(riskLevelStr, ignoreCase = true)
+        } ?: throw IllegalArgumentException("Invalid risk level: $riskLevelStr")
     }
 
     @GetMapping("/assessments/{id}")

@@ -13,9 +13,12 @@ import java.time.OffsetDateTime
 import java.util.UUID
 import jakarta.persistence.EntityNotFoundException
 import org.json.JSONObject
+import org.slf4j.LoggerFactory
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
+import kotlin.math.abs
+import kotlin.math.exp
 
 @Service
 class FinancialAnalysisServiceImpl(
@@ -33,8 +36,13 @@ class FinancialAnalysisServiceImpl(
     private val auditLogService: AuditLogService
 ) : FinancialAnalysisService {
 
+    val logger = LoggerFactory.getLogger(this::class.java)
+
     @Transactional
     override fun calculateAllScoresAndRatios(statementId: Long, userId: UUID): FraudRiskAssessment {
+
+        deleteExistingAnalysis(statementId)
+
         // Calculate financial ratios
         calculateFinancialRatios(statementId, userId)
 
@@ -78,35 +86,37 @@ class FinancialAnalysisServiceImpl(
             ?: throw EntityNotFoundException("Financial data not found for statement id: $statementId")
 
         // Calculate liquidity ratios
-        val currentRatio = calculateCurrentRatio(financialData)
-        val quickRatio = calculateQuickRatio(financialData)
-        val cashRatio = calculateCashRatio(financialData)
+        val currentRatio = capNumericValue(calculateCurrentRatio(financialData), 1e9, -1e9)
+        val quickRatio = capNumericValue(calculateQuickRatio(financialData), 1e9, -1e9)
+        val cashRatio = capNumericValue(calculateCashRatio(financialData), 1e9, -1e9)
+
 
         // Calculate profitability ratios
-        val grossMargin = calculateGrossMargin(financialData)
-        val operatingMargin = calculateOperatingMargin(financialData)
-        val netProfitMargin = calculateNetProfitMargin(financialData)
-        val returnOnAssets = calculateReturnOnAssets(financialData)
-        val returnOnEquity = calculateReturnOnEquity(financialData)
+        val grossMargin = capNumericValue(calculateGrossMargin(financialData), 1e9, -1e9)
+        val operatingMargin = capNumericValue(calculateOperatingMargin(financialData), 1e9, -1e9)
+        val netProfitMargin = capNumericValue(calculateNetProfitMargin(financialData), 1e9, -1e9)
+        val returnOnAssets = capNumericValue(calculateReturnOnAssets(financialData), 1e9, -1e9)
+        val returnOnEquity = capNumericValue(calculateReturnOnEquity(financialData), 1e9, -1e9)
 
         // Calculate efficiency ratios
-        val assetTurnover = calculateAssetTurnover(financialData)
-        val inventoryTurnover = calculateInventoryTurnover(financialData)
-        val accountsReceivableTurnover = calculateAccountsReceivableTurnover(financialData)
-        val daysSalesOutstanding = calculateDaysSalesOutstanding(financialData)
+        val assetTurnover = capNumericValue(calculateAssetTurnover(financialData), 1e9, -1e9)
+        val inventoryTurnover = capNumericValue(calculateInventoryTurnover(financialData), 1e9, -1e9)
+        val accountsReceivableTurnover = capNumericValue(calculateAccountsReceivableTurnover(financialData), 1e9, -1e9)
+        val daysSalesOutstanding = capNumericValue(calculateDaysSalesOutstanding(financialData), 1e9, -1e9)
 
         // Calculate leverage ratios
-        val debtToEquity = calculateDebtToEquity(financialData)
-        val debtRatio = calculateDebtRatio(financialData)
-        val interestCoverage = calculateInterestCoverage(financialData)
+        val debtToEquity = capNumericValue(calculateDebtToEquity(financialData), 1e9, -1e9)
+        val debtRatio = capNumericValue(calculateDebtRatio(financialData), 1e9, -1e9)
+        val interestCoverage = capNumericValue(calculateInterestCoverage(financialData), 1e9, -1e9)
 
         // Calculate valuation ratios
-        val priceToEarnings = calculatePriceToEarnings(financialData)
-        val priceToBook = calculatePriceToBook(financialData)
+        val priceToEarnings = capNumericValue(calculatePriceToEarnings(financialData), 1e9, -1e9)
+        val priceToBook = capNumericValue(calculatePriceToBook(financialData), 1e9, -1e9)
 
         // Calculate quality metrics
-        val accrualRatio = calculateAccrualRatio(financialData)
-        val earningsQuality = calculateEarningsQuality(financialData)
+        val accrualRatio = capNumericValue(calculateAccrualRatio(financialData), 1e9, -1e9)
+        val earningsQuality = capNumericValue(calculateEarningsQuality(financialData), 1e9, -1e9)
+
 
         // Create and save the financial ratios entity
         val financialRatios = FinancialRatios(
@@ -133,6 +143,10 @@ class FinancialAnalysisServiceImpl(
             earningsQuality = earningsQuality,
             calculatedAt = OffsetDateTime.now()
         )
+
+        // Add validation before saving to prevent numeric overflow
+        validateNumericValues(financialRatios)
+
 
         val savedRatios = financialRatiosRepository.save(financialRatios)
 
@@ -358,6 +372,9 @@ class FinancialAnalysisServiceImpl(
             riskCategory = riskCategory,
             calculatedAt = OffsetDateTime.now()
         )
+        // Add validation before saving
+        validateAltmanZScore(altmanZScore)
+
 
         val savedZScore = altmanZScoreRepository.save(altmanZScore)
 
@@ -371,6 +388,8 @@ class FinancialAnalysisServiceImpl(
 
         return savedZScore
     }
+
+
 
     @Transactional
     override fun calculateBeneishMScore(statementId: Long, userId: UUID): BeneishMScore {
@@ -451,6 +470,10 @@ class FinancialAnalysisServiceImpl(
             manipulationProbability = manipulationProbability,
             calculatedAt = OffsetDateTime.now()
         )
+
+        // Add validation before saving
+        validateBeneishMScore(beneishMScore)
+
 
         val savedMScore = beneishMScoreRepository.save(beneishMScore)
 
@@ -539,6 +562,10 @@ class FinancialAnalysisServiceImpl(
             financialStrength = financialStrength,
             calculatedAt = OffsetDateTime.now()
         )
+
+        // Add validation before saving
+        validatePiotroskiFScore(piotroskiFScore)
+
 
         val savedFScore = piotroskiFScoreRepository.save(piotroskiFScore)
 
@@ -658,99 +685,62 @@ class FinancialAnalysisServiceImpl(
 
     @Transactional
     override fun performMlPrediction(statementId: Long, userId: UUID): MlPrediction {
+        // Get financial statement and financial data
         val statement = financialStatementRepository.findById(statementId)
             .orElseThrow { EntityNotFoundException("Financial statement not found with id: $statementId") }
 
+        // Get ML features
         val mlFeatures = mlFeaturesRepository.findByStatementId(statementId)
             ?: throw EntityNotFoundException("ML features not found for statement id: $statementId")
 
-        // Get the active ML model
-        val activeModels = mlModelRepository.findByIsActive(true)
-        if (activeModels.isEmpty()) {
-            throw IllegalStateException("No active ML model found")
+        try {
+            // Find active model or activate the latest model if none is active
+            val model = findOrActivateModel(userId)
+
+            logger.info("Using model ${model.modelName} v${model.modelVersion} for prediction")
+
+            // Prepare feature vector for model input
+            val featureVector = prepareFeatureVector(mlFeatures)
+
+            // Calculate fraud probability using the model
+            val predictionResult = applyModel(model, featureVector)
+
+            // Extract important features for explanation
+            val featureImportance = generateFeatureImportance(predictionResult, featureVector)
+
+            // Generate human-readable explanation
+            val explanation = generateExplanation(predictionResult, featureImportance)
+
+            // Create and save prediction
+            val mlPrediction = MlPrediction(
+                id = null,
+                statement = statement,
+                model = model,
+                fraudProbability = predictionResult.fraudProbability,
+                featureImportance = featureImportance,
+                predictionExplanation = explanation,
+                predictedAt = OffsetDateTime.now()
+            )
+
+            val savedPrediction = mlPredictionRepository.save(mlPrediction)
+
+            // Log the event
+            auditLogService.logEvent(
+                userId = userId,
+                action = "PREDICT",
+                entityType = "ML_PREDICTION",
+                entityId = savedPrediction.id.toString(),
+                details = "Created ML prediction for statement ID: $statementId using model: ${model.modelName} v${model.modelVersion}"
+            )
+
+            return savedPrediction
+        } catch (e: Exception) {
+            logger.error("Error during ML prediction: ${e.message}", e)
+            throw e
         }
-
-        val activeModel = activeModels.first()
-
-        // NOTE: In a real implementation, this would call an ML service or library
-        // For simplicity, we'll generate a prediction based on existing scores
-
-        val featureSet = JSONObject(mlFeatures.featureSet)
-
-        // Get underlying scores
-        val zScore = featureSet.optBigDecimal("z_score", null)
-        val mScore = featureSet.optBigDecimal("m_score", null)
-        val fScore = featureSet.optInt("f_score", 0)
-
-        // Calculate fraud probability based on these scores
-        var fraudProbability = BigDecimal("0.5") // Default mid-point
-
-        if (zScore != null && mScore != null) {
-            // Lower Z-Score = higher fraud risk
-            val zScoreComponent = if (zScore < BigDecimal("1.8")) {
-                BigDecimal("0.4")
-            } else if (zScore < BigDecimal("3.0")) {
-                BigDecimal("0.2")
-            } else {
-                BigDecimal("0.1")
-            }
-
-            // Higher M-Score = higher fraud risk
-            val mScoreComponent = if (mScore > BigDecimal("-1.78")) {
-                BigDecimal("0.4")
-            } else if (mScore > BigDecimal("-2.22")) {
-                BigDecimal("0.3")
-            } else {
-                BigDecimal("0.1")
-            }
-
-            // Lower F-Score = higher fraud risk
-            val fScoreComponent = when {
-                fScore <= 3 -> BigDecimal("0.3")
-                fScore <= 6 -> BigDecimal("0.2")
-                else -> BigDecimal("0.1")
-            }
-
-            // Combine components
-            fraudProbability = zScoreComponent.add(mScoreComponent).add(fScoreComponent).divide(BigDecimal("3"), 6, RoundingMode.HALF_UP)
-        }
-
-        // Create feature importance explanation
-        val featureImportanceJson = JSONObject()
-        featureImportanceJson.put("z_score", 0.35)
-        featureImportanceJson.put("m_score", 0.40)
-        featureImportanceJson.put("f_score", 0.25)
-
-        // Generate explanation
-        val explanation = "Fraud probability is based primarily on: " +
-                "Beneish M-Score (40%), Altman Z-Score (35%), and Piotroski F-Score (25%). " +
-                "Higher M-Score indicates potential earnings manipulation. " +
-                "Lower Z-Score indicates financial distress. " +
-                "Lower F-Score indicates weaker financial strength."
-
-        // Create and save ML Prediction entity
-        val mlPrediction = MlPrediction(
-            id = null,
-            statement = statement,
-            model = activeModel,
-            fraudProbability = fraudProbability,
-            featureImportance = featureImportanceJson.toString(),
-            predictionExplanation = explanation,
-            predictedAt = OffsetDateTime.now()
-        )
-
-        val savedPrediction = mlPredictionRepository.save(mlPrediction)
-
-        auditLogService.logEvent(
-            userId = userId,
-            action = "PREDICT",
-            entityType = "ML_PREDICTION",
-            entityId = savedPrediction.id.toString(),
-            details = "Generated ML prediction for statement id: $statementId. Fraud Probability: $fraudProbability"
-        )
-
-        return savedPrediction
     }
+
+
 
     @Transactional
     override fun assessFraudRisk(statementId: Long, userId: UUID): FraudRiskAssessment {
@@ -1099,5 +1089,688 @@ class FinancialAnalysisServiceImpl(
 
     override fun getPiotroskiFScore(statementId: Long): PiotroskiFScore? {
         return piotroskiFScoreRepository.findByStatementId(statementId)
+    }
+
+
+    @Transactional
+    override fun deleteExistingAnalysis(statementId: Long) {
+        try {
+            // Delete any existing financial ratios
+            financialRatiosRepository.deleteByStatementId(statementId)
+
+            // Delete any existing Altman Z-Score
+            altmanZScoreRepository.deleteByStatementId(statementId)
+
+            // Delete any existing Beneish M-Score
+            beneishMScoreRepository.deleteByStatementId(statementId)
+
+            // Delete any existing Piotroski F-Score
+            piotroskiFScoreRepository.deleteByStatementId(statementId)
+
+            // Delete any existing ML features
+            mlFeaturesRepository.deleteByStatementId(statementId)
+
+            // Delete any existing ML predictions
+            mlPredictionRepository.deleteByStatementId(statementId)
+
+            // Delete any existing fraud risk assessment
+            fraudRiskAssessmentRepository.deleteByStatementId(statementId)
+
+            // Delete any existing risk alerts
+            riskAlertRepository.deleteByStatementId(statementId)
+        } catch (e: Exception) {
+            // Log but don't throw so that processing can continue even if some entities don't exist
+            logger.warn("Could not delete all existing analysis data: ${e.message}")
+        }
+    }
+
+
+    /**
+     * Validates numeric values to prevent database overflow.
+     * Logs warnings if any FinancialRatios values exceed safe database limits
+     */
+    private fun validateNumericValues(ratios: FinancialRatios) {
+        val maxSafeValue = 1e9
+        val minSafeValue = -1e9
+
+        // Check each ratio value and log warnings if they exceed safe limits
+        logIfUnsafe(ratios.currentRatio, "currentRatio", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.quickRatio, "quickRatio", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.cashRatio, "cashRatio", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.grossMargin, "grossMargin", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.operatingMargin, "operatingMargin", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.netProfitMargin, "netProfitMargin", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.returnOnAssets, "returnOnAssets", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.returnOnEquity, "returnOnEquity", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.assetTurnover, "assetTurnover", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.inventoryTurnover, "inventoryTurnover", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.accountsReceivableTurnover, "accountsReceivableTurnover", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.daysSalesOutstanding, "daysSalesOutstanding", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.debtToEquity, "debtToEquity", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.debtRatio, "debtRatio", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.interestCoverage, "interestCoverage", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.priceToEarnings, "priceToEarnings", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.priceToBook, "priceToBook", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.earningsQuality, "earningsQuality", maxSafeValue, minSafeValue)
+        logIfUnsafe(ratios.accrualRatio, "accrualRatio", maxSafeValue, minSafeValue)
+    }
+    /**
+     * Caps a numeric value to prevent overflow
+     */
+    private fun capNumericValue(value: BigDecimal?, max: Double, min: Double): BigDecimal? {
+        if (value == null) return null
+
+        return when {
+            value.toDouble() > max -> BigDecimal.valueOf(max)
+            value.toDouble() < min -> BigDecimal.valueOf(min)
+            value.toDouble().isNaN() -> BigDecimal.ZERO  // Handle NaN
+            value.toDouble().isInfinite() -> {  // Handle infinity
+                if (value.toDouble() > 0) BigDecimal.valueOf(max)
+                else BigDecimal.valueOf(min)
+            }
+            else -> value
+        }
+    }
+
+    /**
+     * Logs warnings if any AltmanZScore values exceed safe database limits
+     */
+    private fun validateAltmanZScore(score: AltmanZScore) {
+        val maxSafeValue = 1e9
+        val minSafeValue = -1e9
+
+        // Check each value and log warnings if they exceed safe limits
+        logIfUnsafe(score.workingCapitalToTotalAssets, "workingCapitalToTotalAssets", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.retainedEarningsToTotalAssets, "retainedEarningsToTotalAssets", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.ebitToTotalAssets, "ebitToTotalAssets", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.marketValueEquityToBookValueDebt, "marketValueEquityToBookValueDebt", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.salesToTotalAssets, "salesToTotalAssets", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.zScore, "zScore", maxSafeValue, minSafeValue)
+    }
+
+    /**
+     * Logs warnings if any BeneishMScore values exceed safe database limits
+     */
+    private fun validateBeneishMScore(score: BeneishMScore) {
+        val maxSafeValue = 1e9
+        val minSafeValue = -1e9
+
+        // Check each value and log warnings if they exceed safe limits
+        logIfUnsafe(score.daysSalesReceivablesIndex, "daysSalesReceivablesIndex", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.grossMarginIndex, "grossMarginIndex", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.assetQualityIndex, "assetQualityIndex", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.salesGrowthIndex, "salesGrowthIndex", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.depreciationIndex, "depreciationIndex", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.sgAdminExpensesIndex, "sgAdminExpensesIndex", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.leverageIndex, "leverageIndex", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.totalAccrualsToTotalAssets, "totalAccrualsToTotalAssets", maxSafeValue, minSafeValue)
+        logIfUnsafe(score.mScore, "mScore", maxSafeValue, minSafeValue)
+    }
+
+
+    /**
+     * Similar validation for PiotroskiFScore
+     */
+    private fun validatePiotroskiFScore(score: PiotroskiFScore) {
+        // Piotroski F-Score components are typically 0 or 1, so we mainly need to cap the final score
+        val maxSafeValue = 1e9
+        val minSafeValue = -1e9
+
+        if (score.fScore != null) {
+            val value = score.fScore!!.toDouble()
+            if (value > maxSafeValue || value < minSafeValue || value.isNaN() || value.isInfinite()) {
+                logger.warn("PiotroskiFScore fScore value exceeds safe database limits: $value")
+            }
+        }
+
+        // Cap individual components if they exist as BigDecimal fields
+        // We'll use reflection to safely check and cap all BigDecimal fields
+        score.javaClass.declaredFields.forEach { field ->
+            field.isAccessible = true
+            val value = field.get(score)
+            if (value is BigDecimal) {
+                val cappedValue = capNumericValue(value, maxSafeValue, minSafeValue)
+                field.set(score, cappedValue)
+            }
+        }
+    }
+
+    /**
+     * Helper function to log warnings for unsafe values
+     */
+    private fun logIfUnsafe(value: BigDecimal?, fieldName: String, max: Double, min: Double) {
+        if (value == null) return
+
+        val doubleValue = value.toDouble()
+        if (doubleValue > max || doubleValue < min || doubleValue.isNaN() || doubleValue.isInfinite()) {
+            logger.warn("Value for $fieldName exceeds safe database limits: $doubleValue")
+        }
+    }
+
+
+    /**
+    * Finds an active ML model or activates the latest model if none is active
+    */
+    private fun findOrActivateModel(userId: UUID): MlModel {
+        // First, try to find an active model
+        val activeModels = mlModelRepository.findByIsActive(true)
+
+        if (activeModels.isNotEmpty()) {
+            return activeModels.first()
+        }
+
+        logger.info("No active ML model found, attempting to activate the latest model")
+
+        // No active model found, find the latest model by creation date/version
+        val allModels = mlModelRepository.findAll()
+
+        if (allModels.isEmpty()) {
+            throw IllegalStateException("No ML models found in the database")
+        }
+
+        // Sort by creation date (descending) and get the most recent
+        val latestModel = allModels.sortedByDescending { it.trainedDate }.first()
+
+        logger.info("Activating latest model: ${latestModel.modelName} v${latestModel.modelVersion}")
+
+        // Activate the latest model
+        val activatedModel = latestModel.copy(isActive = true)
+        val savedModel = mlModelRepository.save(activatedModel)
+
+        // Log the automatic activation
+        auditLogService.logEvent(
+            userId = userId,
+            action = "AUTO_ACTIVATE",
+            entityType = "ML_MODEL",
+            entityId = savedModel.id.toString(),
+            details = "Automatically activated ML model: ${savedModel.modelName} (${savedModel.modelVersion}) - no active model was found"
+        )
+
+        return savedModel
+    }
+
+
+    /**
+     * Data class to hold prediction results
+     */
+    private data class PredictionResult(
+        val fraudProbability: BigDecimal,
+        val importantFeatures: List<Pair<String, Double>>,
+        val metadata: Map<String, Any>
+    )
+
+    /**
+     * Applies the ML model to feature vector to get prediction
+     */
+    private fun applyModel(model: MlModel, features: Map<String, Any>): PredictionResult {
+        try {
+            // Parse the model definition and feature list
+            val modelType = model.modelType
+            val featureIndices = try {
+                JSONObject(model.featureList)
+            } catch (e: Exception) {
+                logger.warn("Could not parse feature list from model: ${e.message}")
+                null
+            }
+
+            // Get performance metrics
+            val performanceMetrics = try {
+                JSONObject(model.performanceMetrics)
+            } catch (e: Exception) {
+                logger.warn("Could not parse performance metrics from model: ${e.message}")
+                null
+            }
+
+            when (modelType) {
+                "RANDOM_FOREST" -> {
+                    // Use feature indices if available to prioritize features
+                    val prioritizedFeatures = if (featureIndices != null) {
+                        // Extract feature indices and sort by importance (lower index = more important)
+                        val featureRankings = featureIndices.keys().asSequence()
+                            .associate { key -> key to (featureIndices.optInt(key, 999)) }
+                            .toList()
+                            .sortedBy { it.second }
+                            .take(10) // Top 10 most important features
+                            .map { it.first }
+                            .toList()
+                    } else {
+                        // Default important features if indices not available
+                        listOf("current_ratio", "quick_ratio", "net_profit_margin", "z_score", "m_score", "f_score")
+                    }
+
+                    // Check for red flags in prioritized features
+                    val redFlags = mutableListOf<Pair<String, Double>>()
+
+                    // Map from snake_case to camelCase for feature accessing
+                    val snakeToCamel = mapOf(
+                        "current_ratio" to "currentRatio",
+                        "quick_ratio" to "quickRatio",
+                        "net_profit_margin" to "netProfitMargin",
+                        "z_score" to "zScore",
+                        "m_score" to "mScore",
+                        "f_score" to "fScore",
+                        "return_on_assets" to "returnOnAssets",
+                        "debt_to_equity" to "debtToEquity",
+                        "total_accruals_to_total_assets" to "totalAccrualsToTotalAssets",
+                        "asset_turnover" to "assetTurnover",
+                        "gross_margin" to "grossMargin",
+                        "operating_margin" to "operatingMargin",
+                        "days_sales_receivables_index" to "daysSalesReceivablesIndex",
+                        "sales_growth_index" to "salesGrowthIndex"
+                    )
+
+                    // Define threshold checks for different features
+                    val thresholdChecks = mapOf(
+                        "currentRatio" to { value: Double -> (value < 1.0) to 0.7 },
+                        "quickRatio" to { value: Double -> (value < 0.5) to 0.6 },
+                        "netProfitMargin" to { value: Double -> (value < 0.0) to 0.8 },
+                        "zScore" to { value: Double -> (value < 1.8) to 0.9 },
+                        "mScore" to { value: Double -> (value > -2.22) to 0.85 },
+                        "fScore" to { value: Double -> (value < 3.0) to 0.75 },
+                        "returnOnAssets" to { value: Double -> (value < 0.02) to 0.65 },
+                        "debtToEquity" to { value: Double -> (value > 2.0) to 0.7 },
+                        "totalAccrualsToTotalAssets" to { value: Double -> (value > 0.1) to 0.8 },
+                        "assetTurnover" to { value: Double -> (value < 0.5) to 0.5 }
+                    )
+
+                    // Apply threshold checks to features
+                    // Use a default list of features if prioritizedFeatures can't be iterated
+                    val defaultFeatures = listOf(
+                        "currentRatio", "quickRatio", "netProfitMargin",
+                        "zScore", "mScore", "fScore"
+                    )
+
+                    // Try to use the existing collection or fall back to default
+                    val featuresToCheck = try {
+                        prioritizedFeatures as? List<String> ?: defaultFeatures
+                    } catch (e: Exception) {
+                        logger.warn("Could not cast prioritizedFeatures to List<String>, using default features", e)
+                        defaultFeatures
+                    }
+
+                    for (featureName in featuresToCheck) {
+                        val camelCaseName = featureName // Assume it's already in camelCase format
+
+                        // Get feature value
+                        val featureValue = features[camelCaseName] as? Double ?: continue
+
+                        // Apply threshold check if one exists
+                        thresholdChecks[camelCaseName]?.let { check ->
+                            val (exceedsThreshold, weight) = check(featureValue)
+                            if (exceedsThreshold) {
+                                redFlags.add(Pair(camelCaseName, weight))
+                            }
+                        }
+                    }
+
+                    // Calculate weighted probability based on red flags
+                    val redFlagCount = redFlags.size
+                    val totalWeight = redFlags.sumOf { it.second }
+
+                    val baseProbability = when {
+                        redFlagCount >= 4 -> 0.85
+                        redFlagCount >= 2 -> 0.65
+                        redFlagCount >= 1 -> 0.45
+                        else -> 0.25
+                    }
+
+                    // Adjust probability based on weights and performance metrics
+                    val modelAccuracy = performanceMetrics?.optDouble("accuracy", 0.0) ?: 0.0
+                    val accuracyFactor = if (modelAccuracy > 0) modelAccuracy / 100.0 else 1.0
+
+                    val adjustedProbability = if (redFlags.isEmpty()) {
+                        baseProbability * accuracyFactor
+                    } else {
+                        minOf(0.95, (baseProbability + (totalWeight / (redFlags.size * 10))) * accuracyFactor)
+                    }
+
+                    return PredictionResult(
+                        fraudProbability = BigDecimal(adjustedProbability).setScale(4, RoundingMode.HALF_UP),
+                        importantFeatures = redFlags,
+                        metadata = mapOf(
+                            "redFlagCount" to redFlagCount,
+                            "modelType" to "RANDOM_FOREST",
+                            "modelVersion" to model.modelVersion,
+                            "modelAccuracy" to modelAccuracy
+                        )
+                    )
+                }
+                "NEURAL_NETWORK" -> {
+                    // Get feature indices for neural network weights if available
+                    val featureWeights = if (featureIndices != null) {
+                        // Extract top features and assign weights based on importance
+                        featureIndices.keys().asSequence()
+                            .take(10) // Use top 10 features
+                            .associate { key ->
+                                val camelCase = snakeToCamel[key] ?: key
+                                val importance = featureIndices.optInt(key, 999)
+                                // Invert and normalize weights (lower index = more important)
+                                val weight = if (importance < 20) {
+                                    // Top features
+                                    if (key.contains("m_score") || key.contains("receivables") ||
+                                        key.contains("accruals") || key.contains("sales_growth")) {
+                                        0.6 // These typically positively correlate with fraud
+                                    } else {
+                                        -0.5 // These typically negatively correlate with fraud
+                                    }
+                                } else {
+                                    // Less important features get smaller weights
+                                    if (key.contains("m_score") || key.contains("receivables") ||
+                                        key.contains("accruals") || key.contains("sales_growth")) {
+                                        0.3
+                                    } else {
+                                        -0.25
+                                    }
+                                }
+                                camelCase to weight
+                            }
+                    } else {
+                        // Default weights if feature indices not available
+                        mapOf(
+                            "currentRatio" to -0.3,
+                            "quickRatio" to -0.25,
+                            "netProfitMargin" to -0.4,
+                            "returnOnAssets" to -0.35,
+                            "zScore" to -0.5,
+                            "mScore" to 0.6,
+                            "fScore" to -0.45,
+                            "totalAccrualsToTotalAssets" to 0.3,
+                            "salesGrowthIndex" to 0.2
+                        )
+                    }
+
+                    // Calculate weighted sum
+                    var sum = 0.0
+                    val importantFeatures = mutableListOf<Pair<String, Double>>()
+
+                    for ((key, weight) in featureWeights) {
+                        val value = features[key] as? Double ?: 0.0
+                        val contribution = value * weight
+                        sum += contribution
+
+                        // Track important features and their contribution
+                        if (abs(contribution) > 0.1) {
+                            importantFeatures.add(Pair(key, abs(contribution)))
+                        }
+                    }
+
+                    // Apply sigmoid function to get probability
+                    val probability = 1.0 / (1.0 + exp(-sum))
+
+                    // Sort features by importance
+                    val sortedFeatures = importantFeatures.sortedByDescending { it.second }
+
+                    return PredictionResult(
+                        fraudProbability = BigDecimal(probability).setScale(4, RoundingMode.HALF_UP),
+                        importantFeatures = sortedFeatures,
+                        metadata = mapOf(
+                            "rawScore" to sum,
+                            "modelType" to "NEURAL_NETWORK",
+                            "modelVersion" to model.modelVersion
+                        )
+                    )
+                }
+                else -> {
+                    // Use top features from model if available
+                    val keyFeatures = if (featureIndices != null) {
+                        featureIndices.keys().asSequence()
+                            .sortedBy { featureIndices.optInt(it, 999) }
+                            .take(3)
+                            .map { snakeToCamel[it] ?: it }
+                            .filter { features.containsKey(it) }
+                            .toList()
+                    } else {
+                        listOf("zScore", "mScore", "fScore")
+                    }
+
+                    // Get feature values
+                    val zScore = features[keyFeatures.getOrNull(0) ?: "zScore"] as? Double ?: 0.0
+                    val mScore = features[keyFeatures.getOrNull(1) ?: "mScore"] as? Double ?: 0.0
+                    val fScore = features[keyFeatures.getOrNull(2) ?: "fScore"] as? Double ?: 0.0
+
+                    // Simple logistic regression formula
+                    val score = -3.0 +
+                            (-0.5 * zScore) +
+                            (0.8 * mScore) +
+                            (-0.6 * fScore)
+
+                    val probability = 1.0 / (1.0 + exp(-score))
+
+                    val importantFeatures = listOf(
+                        Pair(keyFeatures.getOrNull(0) ?: "zScore", abs(-0.5 * zScore)),
+                        Pair(keyFeatures.getOrNull(1) ?: "mScore", abs(0.8 * mScore)),
+                        Pair(keyFeatures.getOrNull(2) ?: "fScore", abs(-0.6 * fScore))
+                    ).sortedByDescending { it.second }
+
+                    return PredictionResult(
+                        fraudProbability = BigDecimal(probability).setScale(4, RoundingMode.HALF_UP),
+                        importantFeatures = importantFeatures,
+                        metadata = mapOf(
+                            "rawScore" to score,
+                            "modelType" to "LOGISTIC_REGRESSION",
+                            "modelVersion" to model.modelVersion
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            logger.error("Error applying ML model: ${e.message}", e)
+
+            // Fallback to simple prediction based on key fraud indicators
+            logger.info("Using fallback prediction method")
+
+            val zScore = features["zScore"] as? Double ?: 0.0
+            val mScore = features["mScore"] as? Double ?: 0.0
+            val fScore = features["fScore"] as? Double ?: 0.0
+
+            // Simple weighted average for fallback
+            val zScoreWeight = if (zScore < 1.8) 0.35 else 0.1
+            val mScoreWeight = if (mScore > -2.22) 0.45 else 0.15
+            val fScoreWeight = if (fScore < 3.0) 0.2 else 0.05
+
+            val fraudProbability = (zScoreWeight * (1.0 - (zScore / 3.0).coerceIn(0.0, 1.0))) +
+                    (mScoreWeight * ((mScore + 5.0) / 10.0).coerceIn(0.0, 1.0)) +
+                    (fScoreWeight * (1.0 - (fScore / 9.0)).coerceIn(0.0, 1.0))
+
+            val importantFeatures = listOf(
+                Pair("zScore", zScoreWeight),
+                Pair("mScore", mScoreWeight),
+                Pair("fScore", fScoreWeight)
+            ).sortedByDescending { it.second }
+
+            return PredictionResult(
+                fraudProbability = BigDecimal(fraudProbability.coerceIn(0.0, 0.95))
+                    .setScale(4, RoundingMode.HALF_UP),
+                importantFeatures = importantFeatures,
+                metadata = mapOf(
+                    "fallback" to true,
+                    "error" to e.message.toString(),
+                    "modelType" to model.modelType,
+                    "modelVersion" to model.modelVersion
+                )
+            )
+        }
+    }
+
+    // Helper function to map snake_case keys to camelCase for consistent use
+    private val snakeToCamel = mapOf(
+        "current_ratio" to "currentRatio",
+        "quick_ratio" to "quickRatio",
+        "cash_ratio" to "cashRatio",
+        "gross_margin" to "grossMargin",
+        "operating_margin" to "operatingMargin",
+        "net_profit_margin" to "netProfitMargin",
+        "return_on_assets" to "returnOnAssets",
+        "return_on_equity" to "returnOnEquity",
+        "asset_turnover" to "assetTurnover",
+        "inventory_turnover" to "inventoryTurnover",
+        "accounts_receivable_turnover" to "accountsReceivableTurnover",
+        "days_sales_outstanding" to "daysSalesOutstanding",
+        "debt_to_equity" to "debtToEquity",
+        "debt_ratio" to "debtRatio",
+        "interest_coverage" to "interestCoverage",
+        "accrual_ratio" to "accrualRatio",
+        "earnings_quality" to "earningsQuality",
+        "working_capital_to_total_assets" to "workingCapitalToTotalAssets",
+        "retained_earnings_to_total_assets" to "retainedEarningsToTotalAssets",
+        "ebit_to_total_assets" to "ebitToTotalAssets",
+        "market_value_equity_to_book_value_debt" to "marketValueEquityToTotalLiabilities",
+        "sales_to_total_assets" to "salesToTotalAssets",
+        "z_score" to "zScore",
+        "days_sales_receivables_index" to "daysSalesReceivablesIndex",
+        "gross_margin_index" to "grossMarginIndex",
+        "asset_quality_index" to "assetQualityIndex",
+        "sales_growth_index" to "salesGrowthIndex",
+        "depreciation_index" to "depreciationIndex",
+        "sg_admin_expenses_index" to "sgaExpensesIndex",
+        "leverage_index" to "leverageIndex",
+        "total_accruals_to_total_assets" to "totalAccrualsToTotalAssets",
+        "m_score" to "mScore",
+        "f_score" to "fScore"
+    )
+    /**
+     * Generates feature importance JSON for storage
+     */
+    private fun generateFeatureImportance(result: PredictionResult, features: Map<String, Any>): String {
+        val jsonObject = JSONObject()
+
+        // Add important features
+        val importantFeaturesJson = JSONObject()
+        for ((feature, importance) in result.importantFeatures) {
+            importantFeaturesJson.put(feature, importance)
+        }
+        jsonObject.put("importantFeatures", importantFeaturesJson)
+
+        // Add metadata
+        val metadataJson = JSONObject()
+        for ((key, value) in result.metadata) {
+            metadataJson.put(key, value)
+        }
+        jsonObject.put("metadata", metadataJson)
+
+        // Add prediction summary
+        jsonObject.put("fraudProbability", result.fraudProbability)
+        jsonObject.put("timestamp", OffsetDateTime.now().toString())
+
+        return jsonObject.toString()
+    }
+
+    /**
+     * Generates a human-readable explanation of the prediction
+     */
+    private fun generateExplanation(result: PredictionResult, featureImportanceJson: String): String {
+        val fraudProbability = result.fraudProbability.toDouble()
+        val importantFeatures = result.importantFeatures
+
+        val explanationBuilder = StringBuilder()
+
+        // Add headline
+        explanationBuilder.append("Fraud Risk Assessment: ")
+        when {
+            fraudProbability >= 0.75 -> explanationBuilder.append("High Risk (${fraudProbability * 100}%)")
+            fraudProbability >= 0.5 -> explanationBuilder.append("Moderate Risk (${fraudProbability * 100}%)")
+            fraudProbability >= 0.25 -> explanationBuilder.append("Low Risk (${fraudProbability * 100}%)")
+            else -> explanationBuilder.append("Very Low Risk (${fraudProbability * 100}%)")
+        }
+
+        explanationBuilder.append("\n\nKey factors influencing this assessment:\n")
+
+        // Add explanation for top features
+        importantFeatures.take(3).forEach { (feature, importance) ->
+            val featureName = when (feature) {
+                "currentRatio" -> "Current Ratio"
+                "quickRatio" -> "Quick Ratio"
+                "netProfitMargin" -> "Net Profit Margin"
+                "returnOnAssets" -> "Return on Assets"
+                "zScore" -> "Altman Z-Score"
+                "mScore" -> "Beneish M-Score"
+                "fScore" -> "Piotroski F-Score"
+                "totalAccrualsToTotalAssets" -> "Total Accruals to Total Assets"
+                "salesGrowthIndex" -> "Sales Growth Index"
+                else -> feature
+            }
+
+            explanationBuilder.append("- $featureName: ")
+            explanationBuilder.append(generateFeatureExplanation(feature, importance))
+            explanationBuilder.append("\n")
+        }
+
+        return explanationBuilder.toString()
+    }
+
+    /**
+     * Generates explanation for a specific feature
+     */
+    private fun generateFeatureExplanation(feature: String, importance: Double): String {
+        return when (feature) {
+            "zScore" -> "The Altman Z-Score indicates ${if (importance > 0.5) "significant" else "some"} financial distress, which correlates with higher fraud risk."
+            "mScore" -> "The Beneish M-Score suggests ${if (importance > 0.6) "strong" else "potential"} earnings manipulation."
+            "fScore" -> "The Piotroski F-Score shows ${if (importance > 0.5) "poor" else "concerning"} financial health, increasing fraud risk."
+            "currentRatio", "quickRatio", "cashRatio" -> "Liquidity ratios indicate ${if (importance > 0.5) "severe" else "potential"} cash flow issues, a potential motive for fraud."
+            "netProfitMargin", "returnOnAssets", "returnOnEquity" -> "Profitability metrics show ${if (importance > 0.4) "significant" else "some"} underperformance, which may incentivize financial manipulation."
+            "totalAccrualsToTotalAssets" -> "High accruals relative to assets suggest ${if (importance > 0.3) "aggressive" else "questionable"} accounting practices."
+            "salesGrowthIndex" -> "Unusual sales growth patterns ${if (importance > 0.2) "strongly indicate" else "suggest"} potential revenue manipulation."
+            else -> "This factor shows ${if (importance > 0.5) "significant" else "some"} anomalies compared to industry norms."
+        }
+    }
+
+    /**
+     * Prepares the feature vector from ML features
+     */
+    private fun prepareFeatureVector(mlFeatures: MlFeatures): Map<String, Any> {
+        // Create a map of feature name to value
+        val features = mutableMapOf<String, Any>()
+
+        try {
+            // Parse the JSON feature set
+            val featureSetJson = JSONObject(mlFeatures.featureSet)
+
+            // Extract features from JSON
+            for (key in featureSetJson.keys()) {
+                val value = featureSetJson.opt(key)
+                when (value) {
+                    is Number -> features[key] = value.toDouble()
+                    is String -> features[key] = value
+                    is Boolean -> features[key] = value
+                    JSONObject.NULL -> features[key] = 0.0
+                    else -> features[key] = value.toString()
+                }
+            }
+
+            // Default values for any missing keys
+            val defaultFeatures = listOf(
+                "currentRatio", "quickRatio", "cashRatio", "grossMargin", "operatingMargin",
+                "netProfitMargin", "returnOnAssets", "returnOnEquity", "assetTurnover",
+                "debtToEquity", "debtRatio", "workingCapitalToTotalAssets",
+                "retainedEarningsToTotalAssets", "ebitToTotalAssets",
+                "marketValueEquityToTotalLiabilities", "salesToTotalAssets", "zScore",
+                "daysSalesReceivablesIndex", "grossMarginIndex", "assetQualityIndex",
+                "salesGrowthIndex", "depreciationIndex", "sgaExpensesIndex", "leverageIndex",
+                "totalAccrualsToTotalAssets", "mScore", "fScore"
+            )
+
+            // Ensure all default features exist (with 0.0 if missing)
+            for (feature in defaultFeatures) {
+                if (!features.containsKey(feature)) {
+                    features[feature] = 0.0
+                }
+            }
+
+            // Add statement ID as a feature
+            features["statementId"] = mlFeatures.statement.id!!
+
+            logger.debug("Prepared feature vector with ${features.size} features")
+
+        } catch (e: Exception) {
+            logger.error("Error parsing ML feature set: ${e.message}", e)
+            // Provide minimal default features if parsing fails
+            features["error"] = true
+            features["fallback"] = true
+            features["zScore"] = 0.0
+            features["mScore"] = 0.0
+            features["fScore"] = 0.0
+        }
+
+        return features
     }
 }

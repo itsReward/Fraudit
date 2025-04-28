@@ -64,7 +64,7 @@ class FinancialAnalysisUtilService(
     @Transactional
     fun analyzeAllPendingStatements(): Int {
         // Find all statements that are in PROCESSED state (have financial data) but not ANALYZED
-        val statements = financialStatementRepository.findByStatus(StatementStatus.PROCESSED)
+        val statements = financialStatementRepository.findByStatusWithCompany(StatementStatus.PROCESSED)
 
         logger.info("Found ${statements.size} statements with financial data ready for analysis")
 
@@ -78,19 +78,34 @@ class FinancialAnalysisUtilService(
                 if (financialData != null) {
                     logger.info("Analyzing statement ID: ${statement.id} for ${statement.fiscalYear.company.name}")
 
-                    // Run the analysis pipeline
-                    financialAnalysisService.calculateAllScoresAndRatios(statement.id!!, systemUUID)
+                    // First remove any existing analysis data for this statement to prevent constraint violations
+                    try {
+                        // This should be implemented in FinancialAnalysisService
+                        financialAnalysisService.deleteExistingAnalysis(statement.id!!)
+                        logger.info("Cleared existing analysis data for statement ID: ${statement.id}")
+                    } catch (e: Exception) {
+                        logger.warn("Failed to clear existing analysis data: ${e.message}")
+                        // Continue with the analysis anyway, it might work if there's no data
+                    }
 
-                    // Log the automated analysis
-                    auditLogService.logEvent(
-                        userId = systemUUID,
-                        action = "AUTO_ANALYZE",
-                        entityType = "FINANCIAL_STATEMENT",
-                        entityId = statement.id.toString(),
-                        details = "Automatically analyzed existing financial data for ${statement.fiscalYear.company.name}"
-                    )
+                    // Run the analysis pipeline with tryCatch for each component
+                    try {
+                        financialAnalysisService.calculateAllScoresAndRatios(statement.id!!, systemUUID)
 
-                    successCount++
+                        // Log the automated analysis
+                        auditLogService.logEvent(
+                            userId = systemUUID,
+                            action = "AUTO_ANALYZE",
+                            entityType = "FINANCIAL_STATEMENT",
+                            entityId = statement.id.toString(),
+                            details = "Automatically analyzed existing financial data for ${statement.fiscalYear.company.name}"
+                        )
+
+                        successCount++
+                    } catch (e: Exception) {
+                        logger.error("Failed to calculate scores and ratios: ${e.message}", e)
+                        errorCount++
+                    }
                 }
             } catch (e: Exception) {
                 logger.error("Error analyzing statement ID: ${statement.id}: ${e.message}", e)
@@ -127,6 +142,15 @@ class FinancialAnalysisUtilService(
                 return false
             }
 
+            // Delete any existing analysis data
+            try {
+                financialAnalysisService.deleteExistingAnalysis(statementId)
+                logger.info("Cleared existing analysis data for statement ID: $statementId")
+            } catch (e: Exception) {
+                logger.warn("Failed to clear existing analysis data: ${e.message}")
+                // Continue anyway
+            }
+
             // Run the analysis pipeline
             financialAnalysisService.calculateAllScoresAndRatios(statementId, userId)
 
@@ -155,4 +179,6 @@ class FinancialAnalysisUtilService(
             false
         }
     }
+
+
 }

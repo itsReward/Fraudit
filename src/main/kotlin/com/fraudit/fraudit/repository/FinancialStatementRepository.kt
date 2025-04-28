@@ -167,4 +167,7 @@ interface FinancialStatementRepository : JpaRepository<FinancialStatement, Long>
      */
     @Query("SELECT fs FROM FinancialStatement fs WHERE fs.financialData IS NOT NULL AND fs.fraudRiskAssessment IS NULL")
     fun findByFinancialDataExistsAndRiskAssessmentNull(pageable: Pageable): Page<FinancialStatement>
+    
+    @Query("SELECT fs FROM FinancialStatement fs JOIN FETCH fs.fiscalYear fy JOIN FETCH fy.company WHERE fs.status = :status")
+    fun findByStatusWithCompany(status: StatementStatus): List<FinancialStatement>
 }

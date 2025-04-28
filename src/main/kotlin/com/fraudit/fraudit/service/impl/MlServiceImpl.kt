@@ -116,21 +116,29 @@ class MlServiceImpl(
 
         // 4. Perform cross-validation evaluation
         val evaluation = Evaluation(trainingData)
-        val folds = Math.min(5, trainingData.numInstances() / 2)
-        if (folds < 2) {
+
+        // Check if we have enough data for proper cross-validation
+        if (trainingData.numInstances() < 4) {
             // Not enough data for cross-validation, use percentage split instead
-            val splitPercent = 70  // 70% training, 30% testing
-            val train = trainingData.trainCV(1, splitPercent, Random(1))
-            val test = trainingData.testCV(1, splitPercent)
+            val splitPercent = 80  // 80% training, 20% testing
+            val rng = Random(1)  // Fixed seed for reproducibility
+            trainingData.randomize(rng)
+
+            // Create train and test sets manually
+            val trainSize = (trainingData.numInstances() * splitPercent / 100.0).toInt()
+            val trainSet = Instances(trainingData, 0, trainSize)
+            val testSet = Instances(trainingData, trainSize, trainingData.numInstances() - trainSize)
+
 
             // Build classifier on training set
-            randomForest.buildClassifier(train)
+            randomForest.buildClassifier(trainSet)
 
             // Evaluate on test set
-            evaluation.evaluateModel(randomForest, test)
+            evaluation.evaluateModel(randomForest, testSet)
         } else {
             // Use cross-validation with appropriate number of folds
-            evaluation.crossValidateModel(randomForest, trainingData, folds, Random(1))
+            val folds = Math.min(5, trainingData.numInstances() / 2)
+            evaluation.crossValidateModel(randomForest, trainingData, Math.max(2, folds), Random(1))
         }
 
         // 5. Train on full dataset
@@ -142,13 +150,24 @@ class MlServiceImpl(
 
         // 7. Create performance metrics JSON
         val performanceMetrics = JSONObject().apply {
-            put("accuracy", evaluation.pctCorrect())
-            put("precision", evaluation.precision(1)) // Class index 1 represents fraud
-            put("recall", evaluation.recall(1))
-            put("f1_score", evaluation.fMeasure(1))
-            put("auc", evaluation.areaUnderROC(1))
+            // Helper function to safely add numeric metrics
+            fun putSafeDouble(key: String, value: Double) {
+                // Check if value is NaN or Infinity and replace with null
+                if (value.isNaN() || value.isInfinite()) {
+                    put(key, JSONObject.NULL)
+                } else {
+                    put(key, value)
+                }
+            }
+
+            putSafeDouble("accuracy", evaluation.pctCorrect())
+            putSafeDouble("precision", evaluation.precision(1)) // Class index 1 represents fraud
+            putSafeDouble("recall", evaluation.recall(1))
+            putSafeDouble("f1_score", evaluation.fMeasure(1))
+            putSafeDouble("auc", evaluation.areaUnderROC(1))
             put("num_training_instances", trainingData.numInstances())
         }.toString()
+
 
         // 8. Create feature list JSON
         val featureList = JSONObject().apply {
@@ -324,36 +343,69 @@ class MlServiceImpl(
         attributes: ArrayList<Attribute>,
         dataset: Instances
     ): Instances {
+        // Track successful instance creation count for logging
+        var successCount = 0
+
         for (statementId in statementIds) {
             try {
                 val mlFeatures = mlFeaturesRepository.findByStatementId(statementId)
                     ?: continue // Skip if no features exist
 
-                // In a real implementation, you would have labeled data
-                // For now, we'll use a simple heuristic based on existing scores
+                // Create a new instance with the correct number of attributes
+                val instance = DenseInstance(attributes.size)
+
+                // Important: Set the dataset for the instance FIRST
+                instance.setDataset(dataset)
+
+                // Parse features from JSON
                 val featuresJson = JSONObject(mlFeatures.featureSet)
+
+                // Set values for each attribute
+                for (i in 0 until attributes.size - 1) { // Exclude class attribute
+                    val attrName = attributes.get(i).name()
+
+                    if (featuresJson.has(attrName)) {
+                        try {
+                            val value = when (val featureValue = featuresJson.get(attrName)) {
+                                is Boolean -> if (featureValue) 1.0 else 0.0
+                                is Number -> featureValue.toDouble()
+                                else -> featuresJson.getDouble(attrName)
+                            }
+                            instance.setValue(i, value)
+                        } catch (e: Exception) {
+                            // Set to missing value if not a valid number
+                            instance.setMissing(i)
+                        }
+                    } else {
+                        // Set to missing value if not found
+                        instance.setMissing(i)
+                    }
+                }
+
+                // Determine fraud label (simple heuristic as mentioned in the code)
                 val mScore = featuresJson.optDouble("m_score", -3.0)
                 val zScore = featuresJson.optDouble("z_score", 3.0)
-
-                // This is a simplistic approach - in real life, you'd have actual labeled data
                 val isFraud = (mScore > -1.78) || (zScore < 1.8)
 
-                // Create instance with the appropriate class label
-                val instance = createInstanceFromFeatures(mlFeatures.featureSet, attributes)
+                // Set the class attribute value
                 instance.setValue(attributes.size - 1, if (isFraud) "fraud" else "non_fraud")
 
+                // Add the instance to the dataset
                 dataset.add(instance)
+                successCount++
 
-                // In prepareTrainingData method of MlServiceImpl
-                // After processing all statements
-                logger.info("Prepared ${dataset.numInstances()} instances for training")
-                if (dataset.numInstances() == 0) {
-                    throw IllegalStateException("No valid training instances found. Check your statement IDs and ensure they have ML features.")
-                }
             } catch (e: Exception) {
                 // Log error and continue with next statement
-                println("Error processing statement $statementId: ${e.message}")
+                logger.error("Error processing statement $statementId: ${e.message}", e)
             }
+        }
+
+        // Log success message
+        logger.info("Successfully prepared $successCount instances for training dataset")
+
+        // Check if we have enough data
+        if (dataset.numInstances() == 0) {
+            throw IllegalStateException("No valid training instances found. Check your statement IDs and ensure they have ML features.")
         }
 
         return dataset
@@ -372,24 +424,22 @@ class MlServiceImpl(
         // Set values for each attribute
         for (i in 0 until attributes.size - 1) { // Exclude class attribute
             val attrName = attributes.get(i).name()
-            val value = if (features.has(attrName)) {
-                when (val featureValue = features.get(attrName)) {
-                    is Boolean -> if (featureValue) 1.0 else 0.0
-                    is Number -> featureValue.toDouble()
-                    else -> {
-                        try {
-                            features.getDouble(attrName)
-                        } catch (e: Exception) {
-                            // Set to missing value if not found or not a number
-                            Utils.missingValue()
-                        }
+            if (features.has(attrName)) {
+                try {
+                    val value = when (val featureValue = features.get(attrName)) {
+                        is Boolean -> if (featureValue) 1.0 else 0.0
+                        is Number -> featureValue.toDouble()
+                        else -> features.getDouble(attrName)
                     }
+                    instance.setValue(i, value)
+                } catch (e: Exception) {
+                    // Set to missing value if not a valid number
+                    instance.setMissing(i)
                 }
             } else {
-                Utils.missingValue()
+                // Set to missing value if not found
+                instance.setMissing(i)
             }
-
-            instance.setValue(i, value)
         }
 
         return instance

@@ -1,6 +1,7 @@
 package com.fraudit.fraudit.domain.entity
 
 import jakarta.persistence.*
+import lombok.EqualsAndHashCode
 import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.UpdateTimestamp
 import java.time.LocalDate
@@ -9,7 +10,8 @@ import java.time.OffsetDateTime
 // Company Entity
 @Entity
 @Table(name = "companies")
-data class Company(
+@EqualsAndHashCode(exclude = ["fiscalYears"])
+ class Company(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "company_id")
@@ -40,4 +42,45 @@ data class Company(
 
     @OneToMany(mappedBy = "company", cascade = [CascadeType.ALL], orphanRemoval = true)
     val fiscalYears: MutableSet<FiscalYear> = mutableSetOf()
-)
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Company) return false
+        if (id != null && other.id != null) return id == other.id
+        return false
+    }
+
+    override fun hashCode(): Int {
+        return id?.hashCode() ?: 0
+    }
+
+    override fun toString(): String {
+        return "Company(id=$id, name='$name', stockCode='$stockCode')"
+    }
+
+    fun copy(
+        id: Long? = this.id,
+        name: String = this.name,
+        stockCode: String = this.stockCode,
+        sector: String? = this.sector,
+        listingDate: LocalDate? = this.listingDate,
+        description: String? = this.description,
+        createdAt: OffsetDateTime? = this.createdAt,
+        updatedAt: OffsetDateTime? = this.updatedAt,
+        fiscalYears: MutableSet<FiscalYear> = this.fiscalYears
+    ): Company {
+        return Company(
+            id = id,
+            name = name,
+            stockCode = stockCode,
+            sector = sector,
+            listingDate = listingDate,
+            description = description,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            fiscalYears = fiscalYears
+        )
+    }
+
+}
+

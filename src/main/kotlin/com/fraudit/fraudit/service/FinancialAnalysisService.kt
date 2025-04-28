@@ -104,4 +104,9 @@ interface FinancialAnalysisService {
      * Get Piotroski F-Score for a statement
      */
     fun getPiotroskiFScore(statementId: Long): PiotroskiFScore?
+
+    /**
+     * Delete any existing analysis data for a financial statement
+     */
+    fun deleteExistingAnalysis(statementId: Long)
 }

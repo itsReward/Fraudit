@@ -53,5 +53,12 @@ data class UserActivityResponse(
     val totalActions: Int,
     val actionCounts: Map<String, Int>,
     val dailyActivity: Map<String, Int>,
-    val mostActiveUsers: List<Map<String, Any>>
+    val mostActiveUsers: List<UserActivityDetail>
+
+)
+
+data class UserActivityDetail(
+    val userId: String,
+    val username: String,
+    val activityCount: Int
 )

@@ -51,11 +51,11 @@ class MlTrainingController(
                 modelName = trainedModel.modelName,
                 modelVersion = trainedModel.modelVersion,
                 trainedDate = trainedModel.trainedDate,
-                accuracy = performanceMetrics.optDouble("accuracy", 0.0),
-                precision = performanceMetrics.optDouble("precision", 0.0),
-                recall = performanceMetrics.optDouble("recall", 0.0),
-                f1Score = performanceMetrics.optDouble("f1_score", 0.0),
-                auc = performanceMetrics.optDouble("auc", 0.0),
+                accuracy = if (performanceMetrics.isNull("accuracy")) null else performanceMetrics.optDouble("accuracy", 0.0),
+                precision = if (performanceMetrics.isNull("precision")) null else performanceMetrics.optDouble("precision", 0.0),
+                recall = if (performanceMetrics.isNull("recall")) null else performanceMetrics.optDouble("recall", 0.0),
+                f1Score = if (performanceMetrics.isNull("f1_score")) null else performanceMetrics.optDouble("f1_score", 0.0),
+                auc = if (performanceMetrics.isNull("auc")) null else performanceMetrics.optDouble("auc", 0.0),
                 trainingDataSize = performanceMetrics.optInt("num_training_instances", 0)
             )
 

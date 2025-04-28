@@ -64,11 +64,11 @@ data class MlTrainingResponse(
     val modelName: String,
     val modelVersion: String,
     val trainedDate: OffsetDateTime,
-    val accuracy: Double,
-    val precision: Double,
-    val recall: Double,
-    val f1Score: Double,
-    val auc: Double,
+    val accuracy: Double?,
+    val precision: Double?,
+    val recall: Double?,
+    val f1Score: Double?,
+    val auc: Double?,
     val trainingDataSize: Int
 )
 
