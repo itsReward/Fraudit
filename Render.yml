@@ -10,6 +10,10 @@ services:
         value: 8080
       - key: SPRING_PROFILES_ACTIVE
         value: prod
+      - key: JAVA_OPTS
+        value: "-Xmx512m -Dserver.port=8080 -Dserver.address=0.0.0.0"
     healthCheckPath: /actuator/health
+    healthCheckTimeout: 60
     ports:
       - port: 8080
+        protocol: http

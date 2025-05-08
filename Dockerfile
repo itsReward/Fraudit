@@ -1,29 +1,24 @@
-FROM amazoncorretto:17-alpine
+FROM gradle:7.6.1-jdk17 AS build
+WORKDIR /app
+COPY build.gradle.kts settings.gradle.kts ./
+COPY gradle ./gradle
+COPY gradlew ./
+COPY src ./src
 
+# Run the Gradle build
+RUN gradle bootJar --no-daemon
+
+FROM openjdk:17-jdk-slim
 WORKDIR /app
 
-# Install debugging tools
-RUN apk add --no-cache bash
+# Copy the JAR file with its original name
+COPY --from=build /app/build/libs/*.jar ./app.jar
 
-# Copy Gradle files first for better layer caching
-COPY gradle gradle
-COPY gradlew gradlew
-COPY build.gradle.kts settings.gradle.kts ./
+# Create a directory for uploads
+RUN mkdir -p /app/uploads
 
-# Ensure gradlew is executable
-RUN chmod +x ./gradlew
+# Explicitly expose port 8080
+EXPOSE 8080
 
-# Copy source code
-COPY src src
-
-# Create upload directory
-RUN mkdir -p /opt/render/project/uploads && chmod -R 777 /opt/render/project/uploads
-
-# Build with Gradle - using the specific JAR name from build.gradle.kts
-RUN ./gradlew bootJar --info
-
-# Check if the JAR exists
-RUN ls -la build/libs/
-
-# Use the specific JAR file name we set in build.gradle.kts
-ENTRYPOINT ["java", "-jar", "/app/build/libs/app.jar"]
+# Very explicit Java command with server properties
+CMD ["java", "-Dserver.port=8080", "-Dserver.address=0.0.0.0", "-jar", "app.jar"]
