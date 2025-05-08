@@ -90,20 +90,32 @@ class ReportController(private val reportService: ReportService) {
 
         when (request.reportType) {
             "fraud-risk" -> {
-                val statementId = request.parameters["statementId"] as Long
+                val statementId = request.parameters["statementId"]?.toString()?.toLongOrNull() 
+                    ?: throw IllegalArgumentException("Invalid or missing statementId parameter")
                 reportService.generateFraudRiskReport(statementId, outputStream, java.util.UUID.randomUUID())
             }
             "company-overview" -> {
-                val companyId = request.parameters["companyId"] as Long
+                val companyId = request.parameters["companyId"]?.toString()?.toLongOrNull()
+                    ?: throw IllegalArgumentException("Invalid or missing companyId parameter")
                 reportService.generateCompanyOverviewReport(companyId, outputStream, java.util.UUID.randomUUID())
             }
             "comparative" -> {
-                @Suppress("UNCHECKED_CAST")
-                val companyIds = request.parameters["companyIds"] as List<Long>
+                val companyIdsParam = request.parameters["companyIds"]
+                val companyIds = when (companyIdsParam) {
+                    is List<*> -> companyIdsParam.mapNotNull { 
+                        it?.toString()?.toLongOrNull() 
+                            ?: throw IllegalArgumentException("Invalid company ID in companyIds list")
+                    }
+                    else -> throw IllegalArgumentException("companyIds parameter must be a list")
+                }
+                if (companyIds.isEmpty()) {
+                    throw IllegalArgumentException("companyIds list cannot be empty")
+                }
                 reportService.generateComparativeReport(companyIds, outputStream, java.util.UUID.randomUUID())
             }
             "high-risk-summary" -> {
-                val riskThreshold = request.parameters["riskThreshold"] as Int
+                val riskThreshold = request.parameters["riskThreshold"]?.toString()?.toIntOrNull()
+                    ?: throw IllegalArgumentException("Invalid or missing riskThreshold parameter")
                 reportService.generateHighRiskSummaryReport(riskThreshold, outputStream, java.util.UUID.randomUUID())
             }
             else -> throw IllegalArgumentException("Unsupported report type: ${request.reportType}")

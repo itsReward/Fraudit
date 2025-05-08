@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.WebRequest
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.multipart.MaxUploadSizeExceededException
 import java.time.OffsetDateTime
 
@@ -138,5 +139,28 @@ class GlobalExceptionHandler {
             .status(HttpStatus.PAYLOAD_TOO_LARGE)
             .body("File size exceeds the maximum allowed limit")
     }
+
+    @ExceptionHandler(NumberFormatException::class, MethodArgumentTypeMismatchException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    fun handleNumberFormatException(ex: Exception, request: WebRequest): ResponseEntity<ErrorResponse> {
+        logger.error("Bad request - Invalid number format: ${ex.message}", ex)
+
+        val errorResponse = ErrorResponse(
+            status = HttpStatus.BAD_REQUEST.value(),
+            message = when (ex) {
+                is NumberFormatException -> "Invalid number format: ${ex.message}"
+                is MethodArgumentTypeMismatchException -> {
+                    val paramName = ex.name ?: "unknown"
+                    "Invalid value for parameter '$paramName'. Expected a valid number."
+                }
+                else -> "Invalid number format in request"
+            },
+            path = request.getDescription(false).substring(4),
+            timestamp = OffsetDateTime.now()
+        )
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse)
+    }
+
 
 }

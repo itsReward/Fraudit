@@ -99,3 +99,12 @@ tasks.asciidoctor {
     inputs.dir(project.extra["snippetsDir"]!!)
     dependsOn(tasks.test)
 }
+
+tasks.getByName<Jar>("jar") {
+    enabled = false
+}
+
+tasks.getByName<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+    archiveFileName.set("fraudit.jar")
+}
+
