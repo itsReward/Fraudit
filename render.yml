@@ -13,4 +13,3 @@ services:
     healthCheckPath: /actuator/health
     ports:
       - port: 8080
-        protocol: http

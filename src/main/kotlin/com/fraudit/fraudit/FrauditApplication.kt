@@ -20,5 +20,8 @@ fun main(args: Array<String>) {
     // Set the server port programmatically
     System.setProperty("server.port", port.toString())
 
+    // Log the port being used
+    println("Starting application on port $port")
+
     runApplication<FrauditApplication>(*args)
 }
