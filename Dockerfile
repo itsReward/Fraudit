@@ -24,4 +24,4 @@ ENV PORT=8080
 #ENTRYPOINT ["sh", "-c", "echo 'Starting with PORT=${PORT}' && java -Dserver.port=${PORT} -Dspring.profiles.active=prod -jar fraudit.jar --server.port=${PORT}"]
 
 # Simpler entrypoint
-CMD ["java", "-jar", "app.jar"]
+CMD ["java", "-jar", "fraudit.jar"]
