@@ -1,27 +1,29 @@
-FROM gradle:7.6.1-jdk17 AS build
+FROM amazoncorretto:17-alpine
+
 WORKDIR /app
+
+# Install debugging tools
+RUN apk add --no-cache bash
+
+# Copy Gradle files first for better layer caching
+COPY gradle gradle
+COPY gradlew gradlew
 COPY build.gradle.kts settings.gradle.kts ./
-COPY gradle ./gradle
-COPY gradlew ./
-COPY src ./src
 
-# Run the Gradle build
-RUN gradle bootJar --no-daemon
+# Ensure gradlew is executable
+RUN chmod +x ./gradlew
 
-FROM openjdk:17-jdk-slim
-WORKDIR /app
-COPY --from=build /app/build/libs/fraudit.jar ./
-EXPOSE 8080
+# Copy source code
+COPY src src
 
-# Create a directory for uploads
-RUN mkdir -p /app/uploads
+# Create upload directory
+RUN mkdir -p /opt/render/project/uploads && chmod -R 777 /opt/render/project/uploads
 
-# Set environment variables
-ENV SPRING_PROFILES_ACTIVE=prod
-ENV PORT=8080
+# Build with Gradle - using the specific JAR name from build.gradle.kts
+RUN ./gradlew bootJar --info
 
-# Ensure the port is set right at runtime
-#ENTRYPOINT ["sh", "-c", "echo 'Starting with PORT=${PORT}' && java -Dserver.port=${PORT} -Dspring.profiles.active=prod -jar fraudit.jar --server.port=${PORT}"]
+# Check if the JAR exists
+RUN ls -la build/libs/
 
-# Simpler entrypoint
-CMD ["java", "-jar", "fraudit.jar"]
+# Use the specific JAR file name we set in build.gradle.kts
+ENTRYPOINT ["java", "-jar", "/app/build/libs/app.jar"]
