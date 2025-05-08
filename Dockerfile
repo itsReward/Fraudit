@@ -18,5 +18,6 @@ RUN mkdir -p /app/uploads
 
 # Set environment variables
 ENV SPRING_PROFILES_ACTIVE=prod
+ENV PORT=8080
 
 ENTRYPOINT ["java", "-jar", "fraudit.jar"]
