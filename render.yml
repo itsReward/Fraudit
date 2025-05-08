@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: fraudit
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+    healthCheckPath: /actuator/health
+    ports:
+      - port: 8080
+        protocol: http
