@@ -1,0 +1,105 @@
+product_id,part_number,part_name,description,in_stock,healthy_number,arrival_price,selling_price,storage_location,version
+a1b2c3d4-e5f6-7890-abcd-ef1234567890,FIL-164-DST,164 DUST FILTER,Air cabin filter for model 164 GL/ML class,44,15,18.5,29.99,Aisle B-12,0
+b2c3d4e5-f6a7-8901-bcde-f12345678901,HSE-164-642-RAD,164/642 RADIOTOR BOTTOM HOSE,Coolant hose for 164/642 engine vehicles,2,5,32.75,59.95,Aisle C-03,0
+c3d4e5f6-a7b8-9012-cdef-123456789012,HSE-166-RAD-BTM,166 RADIATOR BOTTOM HOSE,Lower radiator hose for 166 GLE/GLS models,2,4,28.9,49.99,Aisle C-03,0
+d4e5f6a7-b8c9-0123-defg-2345678901234,HSE-166-RAD-TOP,166 RADIATOR TOP HOSE,Upper radiator hose for 166 GLE/GLS models,2,4,26.4,45.99,Aisle C-03,0
+e5f6a7b8-c9d0-1234-efgh-3456789012345,FIL-202-210-FUEL,202/210 FUEL FILTER,Fuel filter for 202/210 E-Class models,5,8,15.25,27.99,Aisle B-05,0
+f6a7b8c9-d0e1-2345-fghi-4567890123456,FIL-203-DST,203 DUST FILTER,Cabin air filter for 203 C-Class models,12,10,16.8,24.99,Aisle B-12,0
+a7b8c9d0-e1f2-3456-ghij-5678901234567,BRG-204-CNT,204 CENTRE BEARING,Center driveshaft bearing for 204 C-Class,2,4,78.5,139.95,Aisle D-08,0
+b8c9d0e1-f2a3-4567-hijk-6789012345678,FIL-204-212-DST,204/212 DUST FILTER,Cabin air filter for 204/212 C/E-Class models,8,10,17.35,26.99,Aisle B-12,0
+c9d0e1f2-a3b4-5678-ijkl-7890123456789,FIL-205-DST,205 DUST FILTER,Cabin air filter for 205 C-Class models,0,10,18.9,28.99,Aisle B-12,0
+d0e1f2a3-b4c5-6789-jklm-8901234567890,FIL-211-DST,211 DUST FILTER,Cabin air filter for 211 E-Class models,11,8,18.5,27.99,Aisle B-12,0
+e1f2a3b4-c5d6-7890-klmn-9012345678901,PIP-211-642-BST,211/642 BOOST PRESSURE PIPE,Boost pressure pipe for 211/642 diesel models,2,3,75.4,129.95,Aisle E-04,0
+f2a3b4c5-d6e7-8901-lmno-0123456789012,PIP-212-642-BST,212/642 BOOST PRESSURE PIPE,Boost pressure pipe for 212/642 diesel models,2,3,78.6,135.99,Aisle E-04,0
+a3b4c5d6-e7f8-9012-mnop-1234567890123,FIL-221-DST,221 DUST FILTER,Cabin air filter for 221 S-Class models,45,15,22.8,34.99,Aisle B-12,0
+b4c5d6e7-f8a9-0123-nopq-2345678901234,PMP-271-PWR,271 POWER STEERING PUMP,Power steering pump for 271 engine models,-1,2,195.6,329.99,Aisle F-02,0
+c5d6e7f8-a9b0-1234-opqr-3456789012345,SEL-272-OIL-HSG,272 OIL COOLER SEALS (HOUSING),Oil cooler housing seals for 272 V6 engines,17,8,12.5,24.99,Aisle G-06,0
+d6e7f8a9-b0c1-2345-pqrs-4567890123456,FIL-274-212-AIR,274/212 AIR FILTER,Air filter for 212 E-Class with 274 engine,5,6,22.4,39.99,Aisle B-05,0
+e7f8a9b0-c1d2-3456-qrst-5678901234567,FLD-ADBLUE,AdBLUE,Diesel exhaust fluid for BlueTEC vehicles,10,15,9.8,18.99,Aisle A-01,0
+f8a9b0c1-d2e3-4567-rstu-6789012345678,DCT-271-CGI,AIR DUCT 271 CGI,Air intake duct for 271 CGI engine models,21,8,65.4,109.99,Aisle E-02,0
+a9b0c1d2-e3f4-5678-stuv-7890123456789,DCT-271-ORD,AIR DUCT 271 ORD,Air intake duct for 271 standard engine models,2,4,58.75,99.99,Aisle E-02,0
+b0c1d2e3-f4a5-6789-tuvw-8901234567890,DCT-166-AIR,AIR DUCTS 166,Air intake ducts for 166 GLE/GLS models,2,4,72.4,119.95,Aisle E-02,0
+c1d2e3f4-a5b6-7890-uvwx-9012345678901,FIL-GEN-AIR,AIR FILTER,Universal air filter for multiple models,8,10,18.5,32.99,Aisle B-05,0
+d2e3f4a5-b6c7-8901-vwxy-0123456789012,FIL-274-205-AIR,AIR FILTER 274/205,Air filter for 205 C-Class with 274 engine,13,8,24.75,42.99,Aisle B-05,0
+e3f4a5b6-c7d8-9012-wxyz-1234567890123,FIL-111-AIR-1,AIR FILTER 111,Air filter for 111 4-cylinder engines,15,10,19.8,34.99,Aisle B-05,0
+f4a5b6c7-d8e9-0123-xyza-2345678901234,FIL-111-AIR-2,AIR FILTER 111,Premium air filter for 111 engines,5,8,24.5,39.99,Aisle B-05,0
+a5b6c7d8-e9f0-1234-yzab-3456789012345,FIL-156-629-AIR,AIR FILTER 156/629,Air filter for 156/629 engine models,4,6,26.8,44.99,Aisle B-05,0
+b6c7d8e9-f0a1-2345-zabc-4567890123456,FIL-177-AIR,AIR FILTER 177,Air filter for 177 engine models,8,8,23.6,39.99,Aisle B-05,0
+c7d8e9f0-a1b2-3456-abcd-5678901234567,FIL-254-AIR,AIR FILTER 254,Air filter for 254 V6 engine models,3,4,28.9,49.99,Aisle B-05,0
+d8e9f0a1-b2c3-4567-bcde-6789012345678,FIL-260-AIR,AIR FILTER 260,Air filter for 260 V8 engine models,9,8,29.75,52.99,Aisle B-05,0
+e9f0a1b2-c3d4-5678-cdef-7890123456789,FIL-264-AIR,AIR FILTER 264,Air filter for 264 V6 engine models,21,10,27.5,47.99,Aisle B-05,0
+f0a1b2c3-d4e5-6789-defg-8901234567890,FIL-270-AIR,AIR FILTER 270,Air filter for 270 V6 engine models,1,4,28.4,49.99,Aisle B-05,0
+a1b2c3d4-e5f6-7890-efgh-9012345678901,FIL-271-CGI-AIR,AIR FILTER 271 CGI,Air filter for 271 CGI engine models,1,4,32.8,54.99,Aisle B-05,0
+b2c3d4e5-f6a7-8901-fghi-0123456789012,FIL-271-ORD-AIR,AIR FILTER 271 ORD,Air filter for 271 standard engine models,22,12,29.4,49.99,Aisle B-05,0
+c3d4e5f6-a7b8-9012-ghij-1234567890123,FIL-271-SET-AIR,AIR FILTER 271 SET,Complete air filter set for 271 engines,4,5,49.8,84.99,Aisle B-05,0
+d4e5f6a7-b8c9-0123-hijk-2345678901234,FIL-272-112-AIR,AIR FILTER 272/112,Air filter for 272/112 V6/V8 engines,13,8,32.5,54.99,Aisle B-05,0
+e5f6a7b8-c9d0-1234-ijkl-3456789012345,FIL-276-AIR,AIR FILTER 276,Air filter for 276 V6 engine models,23,10,31.75,53.99,Aisle B-05,0
+f6a7b8c9-d0e1-2345-jklm-4567890123456,FIL-276-SET-AIR,AIR FILTER 276 SET,Complete air filter set for 276 engines,19,8,52.4,89.99,Aisle B-05,0
+a7b8c9d0-e1f2-3456-klmn-5678901234567,FIL-278-AIR,AIR FILTER 278,Air filter for 278 V8 engine models,3,4,34.9,59.99,Aisle B-05,0
+b8c9d0e1-f2a3-4567-lmno-6789012345678,FIL-642-BLU-AIR,AIR FILTER 642 BLUETEC,Air filter for 642 BlueTEC diesel engines,0,6,38.5,64.99,Aisle B-05,0
+c9d0e1f2-a3b4-5678-mnop-7890123456789,FIL-642-ORD-AIR,AIR FILTER 642 ORD,Air filter for 642 standard diesel engines,7,6,35.8,59.99,Aisle B-05,0
+d0e1f2a3-b4c5-6789-nopq-8901234567890,FIL-646-AIR,AIR FILTER 646,Air filter for 646 diesel engine models,14,8,36.4,62.99,Aisle B-05,0
+e1f2a3b4-c5d6-7890-opqr-9012345678901,FIL-648-AIR,AIR FILTER 648,Air filter for 648 diesel engine models,6,6,37.5,63.99,Aisle B-05,0
+f2a3b4c5-d6e7-8901-pqrs-0123456789012,FIL-651-205-AIR,AIR FILTER 651/205,Air filter for 205 models with 651 engine,1,4,39.8,67.99,Aisle B-05,0
+a3b4c5d6-e7f8-9012-qrst-1234567890123,FIL-651-212-AIR,AIR FILTER 651/212,Air filter for 212 models with 651 engine,20,10,38.5,65.99,Aisle B-05,0
+b4c5d6e7-f8a9-0123-rstu-2345678901234,FIL-656-654-AIR,AIR FILTER 656/654,Air filter for 656/654 diesel engines,3,4,42.3,71.99,Aisle B-05,0
+c5d6e7f8-a9b0-1234-stuv-3456789012345,FIL-169-A-AIR,AIR FILTER A CLASS 169,Air filter for A-Class 169 models,3,6,26.8,44.99,Aisle B-05,0
+d6e7f8a9-b0c1-2345-tuvw-4567890123456,FIL-JEEP-AIR-1,AIR FILTER JEEP,Air filter for Jeep models,-2,4,32.5,54.99,Aisle B-06,0
+e7f8a9b0-c1d2-3456-uvwx-5678901234567,FIL-JEEP-AIR-2,AIR FILTER JEEP,Premium air filter for Jeep models,8,6,35.8,59.99,Aisle B-06,0
+f8a9b0c1-d2e3-4567-vwxy-6789012345678,FIL-JEEP-WRNG-AIR,AIR FILTER JEEP WRANGLER,Specific air filter for Jeep Wrangler,6,4,39.8,67.99,Aisle B-06,0
+a9b0c1d2-e3f4-5678-wxyz-7890123456789,FIL-XCLASS-AIR,AIR FILTER X CLASS,Air filter for X-Class pickup models,5,4,42.5,72.99,Aisle B-06,0
+b0c1d2e3-f4a5-6789-xyza-8901234567890,SEL-AIRFLOW-SNS,AIR FLOW SENSOR SEAL,Seal for MAF/airflow sensor connection,0,10,8.4,16.99,Aisle G-08,0
+c1d2e3f4-a5b6-7890-yzab-9012345678901,SVC-AIRCON-REG,AIRCON REGASSING,Air conditioning regas service kit,92,20,45.8,89.99,Aisle A-08,0
+d2e3f4a5-b6c7-8901-zabc-0123456789012,SNS-112-AIRMASS,AIRMASS SENSOR 112,Air mass sensor for 112 V8 engines,2,2,145.6,249.99,Aisle H-04,0
+e3f4a5b6-c7d8-9012-abcd-1234567890123,REG-112-ALT,ALTERNATOR REGULATOR 112,Alternator voltage regulator for 112 engines,2,4,68.4,119.99,Aisle F-05,0
+f4a5b6c7-d8e9-0123-bcde-2345678901234,REG-271-ALT,ALTERNATOR REGULATOR 271,Alternator voltage regulator for 271 engines,3,4,72.5,124.99,Aisle F-05,0
+a5b6c7d8-e9f0-1234-cdef-3456789012345,FLD-ATF,ATF,Automatic transmission fluid,-1,10,18.4,32.99,Aisle A-02,0
+b6c7d8e9-f0a1-2345-defg-4567890123456,BAT-AUX-1,AUXILLIARY BATTERY,Auxiliary battery for dual-battery systems,0,3,125.4,199.99,Aisle F-07,0
+c7d8e9f0-a1b2-3456-efgh-5678901234567,BAT-AUX-2,AUXILLIARY BATTERY,Premium auxiliary battery,6,3,159.8,249.99,Aisle F-07,0
+d8e9f0a1-b2c3-4567-fghi-6789012345678,PIP-166-164-HTR-BCK,BACK HEATER PIPE 166/164,Rear heater pipe for 166/164 SUV models,17,6,85.4,144.99,Aisle C-04,0
+e9f0a1b2-c3d4-5678-ghij-7890123456789,PIP-271-EVO-HTR-BCK,BACK HEATER PIPE 271 EVO,Rear heater pipe for 271 EVO engine models,6,4,92.3,159.99,Aisle C-04,0
+f0a1b2c3-d4e5-6789-hijk-8901234567890,PIP-271-ORD-HTR-BCK,BACK HEATER PIPE 271 ORD,Rear heater pipe for 271 standard engines,13,6,88.6,149.99,Aisle C-04,0
+a1b2c3d4-e5f6-7890-ijkl-9012345678901,JNT-163-BALL,BALL JOINTS 163,Ball joints for 163 ML-Class suspension,10,6,42.8,74.99,Aisle D-03,0
+b2c3d4e5-f6a7-8901-jklm-0123456789012,JNT-212-BALL,BALL JOINTS 212,Ball joints for 212 E-Class suspension,4,6,46.5,79.99,Aisle D-03,0
+c3d4e5f6-a7b8-9012-klmn-1234567890123,BSH-BAR,BAR BUSHES,Universal stabilizer bar bushings,-2,10,12.4,22.99,Aisle D-06,0
+d4e5f6a7-b8c9-0123-lmno-2345678901234,BSH-164-BAR,BAR BUSHES 164,Stabilizer bar bushings for 164 ML-Class,0,8,16.8,28.99,Aisle D-06,0
+e5f6a7b8-c9d0-1234-mnop-3456789012345,BLT-6PK-1070,BELT 6PK 1070,6-rib serpentine belt 1070mm length,4,6,18.5,32.99,Aisle E-08,0
+f6a7b8c9-d0e1-2345-nopq-4567890123456,BLT-6PK-2100,BELT 6PK 2100,6-rib serpentine belt 2100mm length,3,4,24.3,42.99,Aisle E-08,0
+a7b8c9d0-e1f2-3456-opqr-5678901234567,BLT-6PK-2260,BELT 6PK 2260,6-rib serpentine belt 2260mm length,11,6,26.4,44.99,Aisle E-08,0
+b8c9d0e1-f2a3-4567-pqrs-6789012345678,BLT-6PK-2315,BELT 6PK 2315,6-rib serpentine belt 2315mm length,8,6,28.5,47.99,Aisle E-08,0
+c9d0e1f2-a3b4-5678-qrst-7890123456789,BLT-6PK-2390,BELT 6PK 2390,6-rib serpentine belt 2390mm length,31,10,29.8,49.99,Aisle E-08,0
+d0e1f2a3-b4c5-6789-rstu-8901234567890,BLT-6PK-2475,BELT 6PK 2475,6-rib serpentine belt 2475mm length,1,4,32.5,53.99,Aisle E-08,0
+e1f2a3b4-c5d6-7890-stuv-9012345678901,BLT-6PK-2130,BELT 6PK2130,6-rib serpentine belt 2130mm length,11,6,25.4,43.99,Aisle E-08,0
+f2a3b4c5-d6e7-8901-tuvw-0123456789012,BLT-7PK-2005,BELT 7PK 2005,7-rib serpentine belt 2005mm length,11,6,27.5,47.99,Aisle E-08,0
+a3b4c5d6-e7f8-9012-uvwx-1234567890123,BLT-7PK-2035,BELT 7PK 2035,7-rib serpentine belt 2035mm length,7,6,28.4,48.99,Aisle E-08,0
+b4c5d6e7-f8a9-0123-vwxy-2345678901234,BLT-7PK-2418,BELT 7PK 2418,7-rib serpentine belt 2418mm length,11,6,32.6,54.99,Aisle E-08,0
+c5d6e7f8-a9b0-1234-wxyz-3456789012345,BLT-8PK-2035,BELT 8PK 2035,8-rib serpentine belt 2035mm length,37,12,35.8,59.99,Aisle E-08,0
+d6e7f8a9-b0c1-2345-xyza-4567890123456,TNS-272-BLT,BELT TENSIONER 272,Belt tensioner for 272 V6 engines,10,5,85.4,145.99,Aisle E-09,0
+e7f8a9b0-c1d2-3456-yzab-5678901234567,TNS-642-BLT,BELT TENSIONER 642,Belt tensioner for 642 diesel engines,9,5,92.8,159.99,Aisle E-09,0
+f8a9b0c1-d2e3-4567-zabc-6789012345678,SHK-164-BNNT,BONNET SHOCKS 164,Bonnet/hood support shocks for 164 models,3,4,32.5,54.99,Aisle D-12,0
+a9b0c1d2-e3f4-5678-abcd-7890123456789,SHK-203-BNNT,BONNET SHOCKS 203,Bonnet/hood support shocks for 203 models,3,4,28.4,48.99,Aisle D-12,0
+b0c1d2e3-f4a5-6789-bcde-8901234567890,EMB-BNNT-STAR,BONNET STAR,Mercedes star emblem for hood/bonnet,5,6,45.8,79.99,Aisle J-02,0
+c1d2e3f4-a5b6-7890-cdef-9012345678901,PIP-166-BST-R,BOOST PRESSURE PIPE 166 RIGHT SIDE,Right side boost pressure pipe for 166 models,6,4,85.4,149.99,Aisle E-04,0
+d2e3f4a5-b6c7-8901-defg-0123456789012,PIP-BST-L,BOOST PRESSURE PIPE LEFT SIDE,Left side boost pressure pipe for various models,0,4,82.5,142.99,Aisle E-04,0
+e3f4a5b6-c7d8-9012-efgh-1234567890123,RES-166-BRK,BRAKE FLUID RESEVOIR 166,Brake fluid reservoir for 166 GLE/GLS models,4,3,35.8,59.99,Aisle C-07,0
+f4a5b6c7-d8e9-0123-fghi-2345678901234,SWT-BRK-LGT,BRAKE LIGHT SWITCH,Brake light activation switch,14,10,12.4,22.99,Aisle J-05,0
+a5b6c7d8-e9f0-1234-ghij-3456789012345,BLB-BRK-LGT,BRAKE LIGHTS,Brake light bulbs,95,30,2.8,5.99,Aisle J-08,0
+b6c7d8e9-f0a1-2345-hijk-4567890123456,SNS-BRK-PIN,BRAKE WARE SENSORS (PIN),Brake pad wear sensors with pin connectors,42,20,18.5,34.99,Aisle D-09,0
+c7d8e9f0-a1b2-3456-ijkl-5678901234567,SNS-BRK-164-NP,BRAKE WARE SENSORS 164 (NO PIN),Brake pad wear sensors for 164 models,72,20,16.8,32.99,Aisle D-09,0
+d8e9f0a1-b2c3-4567-jklm-6789012345678,PIP-A-BRTH,BREATHER PIPE A CLASS,PCV breather pipe for A-Class models,1,3,42.5,74.99,Aisle C-05,0
+e9f0a1b2-c3d4-5678-klmn-7890123456789,CNT-BRTH-PIPE,BREATHER PIPE CONNECTOR,PCV breather pipe connector fitting,23,15,8.4,15.99,Aisle C-05,0
+f0a1b2c3-d4e5-6789-lmno-8901234567890,CNT-BRTH-246-A,BREATHER PIPE CONNECTOR A CLASS 246,PCV connector for A-Class 246 models,3,6,12.5,22.99,Aisle C-05,0
+a1b2c3d4-e5f6-7890-mnop-9012345678901,BLB-HB4,BULB HB4,HB4 halogen headlight bulbs,26,15,6.8,12.99,Aisle J-08,0
+b2c3d4e5-f6a7-8901-nopq-0123456789012,BLB-MISC,BULBS,Assorted automotive bulbs,20,20,2.4,4.99,Aisle J-08,0
+c3d4e5f6-a7b8-9012-opqr-1234567890123,BSH-GEN,BUSHING,General use suspension bushings,5,10,14.5,26.99,Aisle D-06,0
+d4e5f6a7-b8c9-0123-qrst-2345678901234,GER-276-CAM,CAM GEARS 276,Camshaft timing gears for 276 V6 engines,1,2,175.4,299.99,Aisle G-03,0
+e5f6a7b8-c9d0-1234-rstu-3456789012345,BRG-211-CNT,CENTRE BEARING 211,Driveshaft center bearing for 211 E-Class,0,2,82.5,144.99,Aisle D-08,0
+f6a7b8c9-d0e1-2345-stuv-4567890123456,CND-166,CONDENSER 166,AC condenser for 166 GLE/GLS models,4,2,195.8,329.99,Aisle C-09,0
+a7b8c9d0-e1f2-3456-tuvw-5678901234567,CNS-MISC,CONSUMABLES,General shop consumables,37,20,1.85,3.99,Aisle A-03,0
+b8c9d0e1-f2a3-4567-uvwx-6789012345678,FLD-CLNT,COOLANT,Engine coolant/antifreeze,90,30,8.4,16.99,Aisle A-02,0
+c9d0e1f2-a3b4-5678-vwxy-7890123456789,PMP-CLNT,COOLANT PUMP,Universal auxiliary coolant pump,1,2,78.5,134.99,Aisle F-03,0
+d0e1f2a3-b4c5-6789-wxyz-8901234567890,WSH-CPPER,COPPER WASHERS,Assorted copper sealing washers,80,50,0.4,0.99,Aisle G-09,0
+e1f2a3b4-c5d6-7890-xyza-9012345678901,SNS-270-274-CRNK,CRANK SENSOR 270/274,Crankshaft position sensor for 270/274 engines,4,4,48.5,84.99,Aisle H-04,0
+f2a3b4c5-d6e7-8901-yzab-0123456789012,SNS-642-CRNK,CRANK SENSOR 642,Crankshaft position sensor for 642 diesel engines,7,4,52.4,89.99,Aisle H-04,0
+a3b4c5d6-e7f8-9012-zabc-1234567890123,FIL-DSL,DIESEL FILTER,Universal diesel fuel filter,18,10,22.5,39.99,Aisle B-07,0
+b4c5d6e7-f8a9-0123-abcd-2345678901234,FIL-167-DSL,DIESEL FILTER 167,Diesel fuel filter for 167 GLC models,0,4,28.7,49.99,Aisle B-07,

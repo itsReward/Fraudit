@@ -1,10 +1,22 @@
 FROM gradle:7.6.1-jdk17 AS build
-COPY --chown=gradle:gradle . /home/gradle/src
-WORKDIR /home/gradle/src
-RUN gradle build --no-daemon
+WORKDIR /app
+COPY build.gradle.kts settings.gradle.kts ./
+COPY gradle ./gradle
+COPY gradlew ./
+COPY src ./src
+
+# Run the Gradle build
+RUN gradle bootJar --no-daemon
 
 FROM openjdk:17-jdk-slim
+WORKDIR /app
+COPY --from=build /app/build/libs/fraudit.jar ./
 EXPOSE 8080
-RUN mkdir /app
-COPY --from=build /home/gradle/src/build/libs/*.jar /app/fraudit.jar
-ENTRYPOINT ["java", "-jar", "/app/fraudit.jar"]
+
+# Create a directory for uploads
+RUN mkdir -p /app/uploads
+
+# Set environment variables
+ENV SPRING_PROFILES_ACTIVE=prod
+
+ENTRYPOINT ["java", "-jar", "fraudit.jar"]
