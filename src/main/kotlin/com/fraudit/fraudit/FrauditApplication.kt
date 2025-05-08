@@ -1,9 +1,11 @@
 package com.fraudit.fraudit
 
+import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.boot.runApplication
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer
+import java.util.Properties
 
 @SpringBootApplication
 class FrauditApplication : SpringBootServletInitializer() {
@@ -14,14 +16,14 @@ class FrauditApplication : SpringBootServletInitializer() {
 
 
 fun main(args: Array<String>) {
-    // Get PORT environment variable with default fallback to 8080
-    val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
+    val springApplication = SpringApplication(FrauditApplication::class.java)
+    val properties = Properties()
 
-    // Set the server port programmatically
-    System.setProperty("server.port", port.toString())
+    // Set the port from environment variable
+    val port = System.getenv("PORT") ?: "8080"
+    properties.setProperty("server.port", port)
+    properties.setProperty("server.address", "0.0.0.0")
 
-    // Log the port being used
-    println("Starting application on port $port")
-
-    runApplication<FrauditApplication>(*args)
+    springApplication.setDefaultProperties(properties)
+    springApplication.run(*args)
 }
