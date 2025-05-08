@@ -1,7 +1,6 @@
 package com.fraudit.fraudit.domain.entity
 
 import jakarta.persistence.*
-import lombok.EqualsAndHashCode
 import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.UpdateTimestamp
 import java.time.LocalDate
@@ -10,8 +9,7 @@ import java.time.OffsetDateTime
 // Company Entity
 @Entity
 @Table(name = "companies")
-@EqualsAndHashCode(exclude = ["fiscalYears"])
- class Company(
+class Company(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "company_id")
@@ -81,6 +79,4 @@ import java.time.OffsetDateTime
             fiscalYears = fiscalYears
         )
     }
-
 }
-

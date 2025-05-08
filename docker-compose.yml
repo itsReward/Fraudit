@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: fraudit-app
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      - SPRING_DATASOURCE_URL=postgresql://fraudit_user:TPfLd0LueV2tXV0nt46mtcfRdF4PxZZ8@dpg-d0ea56k9c44c73coro80-a/fraudit
+      - SPRING_DATASOURCE_USERNAME=fraudit_user
+      - SPRING_DATASOURCE_PASSWORD=TPfLd0LueV2tXV0nt46mtcfRdF4PxZZ8
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
+      - SPRING_PROFILES_ACTIVE=prod
+    volumes:
+      - ./uploads:/app/uploads
+    restart: always
+
+  db:
+    image: postgres:15.2-alpine
+    container_name: fraudit-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=fraudit_user
+      - POSTGRES_PASSWORD=TPfLd0LueV2tXV0nt46mtcfRdF4PxZZ8
+      - POSTGRES_DB=fraudit
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  postgres_data:
