@@ -1,24 +1,34 @@
+# Build Java application
 FROM gradle:7.6.1-jdk17 AS build
 WORKDIR /app
 COPY build.gradle.kts settings.gradle.kts ./
 COPY gradle ./gradle
 COPY gradlew ./
 COPY src ./src
-
-# Run the Gradle build
 RUN gradle bootJar --no-daemon
 
-FROM openjdk:17-jdk-slim
+# Create final image with Node.js and Java
+FROM node:16-slim
 WORKDIR /app
 
-# Copy the JAR file with its original name
+# Install OpenJDK
+RUN apt-get update && \
+    apt-get install -y openjdk-17-jre-headless && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy Node.js files
+COPY server.js package.json ./
+RUN npm install
+
+# Copy Java app from build stage
 COPY --from=build /app/build/libs/*.jar ./app.jar
 
-# Create a directory for uploads
+# Create uploads directory
 RUN mkdir -p /app/uploads
 
-# Explicitly expose port 8080
+# Expose port
 EXPOSE 8080
 
-# Very explicit Java command with server properties
-CMD ["java", "-Dserver.port=8080", "-Dserver.address=0.0.0.0", "-jar", "app.jar"]
+# Start Node.js server
+CMD ["node", "server.js"]
