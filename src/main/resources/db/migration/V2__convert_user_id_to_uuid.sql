@@ -5,9 +5,6 @@ ALTER TABLE fraud_risk_assessment DROP CONSTRAINT IF EXISTS fk_assessment_user;
 ALTER TABLE ml_models DROP CONSTRAINT IF EXISTS fk_model_user;
 ALTER TABLE risk_alerts DROP CONSTRAINT IF EXISTS fk_alert_user;
 
--- Drop any refresh_tokens table that might exist
-DROP TABLE IF EXISTS refresh_tokens;
-
 -- Change user_id column in the users table
 ALTER TABLE users ALTER COLUMN user_id TYPE UUID USING user_id::UUID;
 
