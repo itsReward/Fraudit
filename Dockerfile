@@ -1,10 +1,29 @@
-FROM gradle:7.6.1-jdk17 AS build
-COPY --chown=gradle:gradle . /home/gradle/src
-WORKDIR /home/gradle/src
-RUN gradle build --no-daemon
+FROM amazoncorretto:17-alpine
 
-FROM openjdk:17-jdk-slim
-EXPOSE 8080
-RUN mkdir /app
-COPY --from=build /home/gradle/src/build/libs/*.jar /app/fraudit.jar
-ENTRYPOINT ["java", "-jar", "/app/fraudit.jar"]
+WORKDIR /app
+
+# Install debugging tools
+RUN apk add --no-cache bash
+
+# Copy Gradle files first for better layer caching
+COPY gradle gradle
+COPY gradlew gradlew
+COPY build.gradle.kts settings.gradle.kts ./
+
+# Ensure gradlew is executable
+RUN chmod +x ./gradlew
+
+# Copy source code
+COPY src src
+
+# Create upload directory
+RUN mkdir -p /opt/render/project/uploads && chmod -R 777 /opt/render/project/uploads
+
+# Build with Gradle
+RUN ./gradlew bootJar --info
+
+# Check if the JAR exists
+RUN ls -la build/libs/
+
+# Use the JAR file name from your build.gradle.kts
+ENTRYPOINT ["java", "-jar", "/app/build/libs/fraudit.jar"]

@@ -74,3 +74,8 @@ tasks.withType<Test> {
 tasks.bootJar {
     archiveFileName.set("fraudit.jar")
 }
+
+// Explicitly disable the plain jar task to avoid confusion
+tasks.jar {
+    enabled = false
+}

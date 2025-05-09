@@ -2,15 +2,26 @@ services:
   - type: web
     name: fraudit
     env: docker
-    dockerfilePath: ./Dockerfile
+    region: oregon  # You can change this to your preferred region
     plan: free
-    region: oregon
+    branch: main  # Change this to your main branch name if different
     envVars:
+      - key: JDBC_DATABASE_USERNAME
+        sync: false  # This means you'll need to manually set it in Render dashboard
+      - key: JDBC_DATABASE_PASSWORD
+        sync: false  # This means you'll need to manually set it in Render dashboard
+      - key: FILE_UPLOAD_DIR
+        value: /opt/render/project/uploads
       - key: PORT
         value: 8080
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-    healthCheckPath: /
-    ports:
-      - port: 8080
-        protocol: http
+    disk:
+      name: uploads
+      mountPath: /opt/render/project/uploads
+      sizeGB: 1
+
+databases:
+  - name: fraudit-db
+    plan: free
+    region: oregon  # Should match your web service region
