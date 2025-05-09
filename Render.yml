@@ -8,15 +8,15 @@ services:
     healthCheckPath: /health
     envVars:
       - key: PORT
-        value: "8080"
+        value: 8080
       - key: JDBC_DATABASE_USERNAME
         sync: false  # This means you'll need to manually set it in Render dashboard
       - key: JDBC_DATABASE_PASSWORD
         sync: false  # This means you'll need to manually set it in Render dashboard
       - key: FILE_UPLOAD_DIR
-        value: "/opt/render/project/uploads"
+        value: /opt/render/project/uploads
       - key: SPRING_PROFILES_ACTIVE
-        value: "prod"
+        value: prod
     disk:
       name: fraudit-data
       mountPath: /opt/render/project/uploads
