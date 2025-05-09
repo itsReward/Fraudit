@@ -32,12 +32,12 @@ class JwtTokenServiceImpl(
         val expiryDate = Date(now.time + jwtExpiration)
 
         return Jwts.builder()
-            .subject(user.id.toString())
+            .setSubject(user.id.toString())
             .claim("username", user.username)
             .claim("email", user.email)
             .claim("role", user.role.name)
-            .issuedAt(now)
-            .expiration(expiryDate)
+            .setIssuedAt(now)
+            .setExpiration(expiryDate)
             .signWith(secretKey)
             .compact()
     }
@@ -47,19 +47,19 @@ class JwtTokenServiceImpl(
         val expiryDate = Date(now.time + refreshExpiration)
 
         return Jwts.builder()
-            .subject(user.id.toString())
-            .issuedAt(now)
-            .expiration(expiryDate)
+            .setSubject(user.id.toString())
+            .setIssuedAt(now)
+            .setExpiration(expiryDate)
             .signWith(secretKey)
             .compact()
     }
 
     override fun validateToken(token: String): Boolean {
         try {
-            Jwts.parser()
-                .verifyWith(secretKey)
+            Jwts.parserBuilder()
+                .setSigningKey(secretKey)
                 .build()
-                .parseSignedClaims(token)
+                .parseClaimsJws(token)
             return true
         } catch (e: Exception) {
             // Token validation failed
@@ -69,11 +69,11 @@ class JwtTokenServiceImpl(
 
     override fun getUserIdFromToken(token: String): UUID? {
         try {
-            val claims = Jwts.parser()
-                .verifyWith(secretKey)
+            val claims = Jwts.parserBuilder()
+                .setSigningKey(secretKey)
                 .build()
-                .parseSignedClaims(token)
-                .payload
+                .parseClaimsJws(token)
+                .body
 
             return UUID.fromString(claims.subject)
         } catch (e: Exception) {
@@ -83,11 +83,11 @@ class JwtTokenServiceImpl(
 
     override fun getExpirationFromToken(token: String): Date? {
         try {
-            val claims = Jwts.parser()
-                .verifyWith(secretKey)
+            val claims = Jwts.parserBuilder()
+                .setSigningKey(secretKey)
                 .build()
-                .parseSignedClaims(token)
-                .payload
+                .parseClaimsJws(token)
+                .body
 
             return claims.expiration
         } catch (e: Exception) {
@@ -97,11 +97,11 @@ class JwtTokenServiceImpl(
 
     override fun getAllClaimsFromToken(token: String): Claims? {
         try {
-            return Jwts.parser()
-                .verifyWith(secretKey)
+            return Jwts.parserBuilder()
+                .setSigningKey(secretKey)
                 .build()
-                .parseSignedClaims(token)
-                .payload
+                .parseClaimsJws(token)
+                .body
         } catch (e: Exception) {
             return null
         }
