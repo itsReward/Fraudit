@@ -16,14 +16,19 @@ class FrauditApplication : SpringBootServletInitializer() {
 
 
 fun main(args: Array<String>) {
-    val springApplication = SpringApplication(FrauditApplication::class.java)
-    val properties = Properties()
+    // Get PORT environment variable with default fallback to 8080
+    val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
 
-    // Set the port from environment variable
-    val port = System.getenv("PORT") ?: "8080"
-    properties.setProperty("server.port", port)
-    properties.setProperty("server.address", "0.0.0.0")
+    println("=====================================")
+    println("Starting application with PORT: $port")
+    println("All environment variables:")
+    System.getenv().forEach { (key, value) ->
+        println("$key: ${if (key.contains("PASSWORD", ignoreCase = true)) "***REDACTED***" else value}")
+    }
+    println("=====================================")
 
-    springApplication.setDefaultProperties(properties)
-    springApplication.run(*args)
+    // Set server port
+    System.setProperty("server.port", port.toString())
+
+    runApplication<FrauditApplication>(*args)
 }

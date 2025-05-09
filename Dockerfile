@@ -25,5 +25,12 @@ RUN ./gradlew bootJar --info
 # Check if the JAR exists
 RUN ls -la build/libs/
 
-# Use the JAR file name from your build.gradle.kts
-ENTRYPOINT ["java", "-jar", "/app/build/libs/fraudit.jar"]
+# Add the run script and make it executable
+COPY run.sh /app/
+RUN chmod +x /app/run.sh
+
+# Expose port 8080
+EXPOSE 8080
+
+# Use the run script as the entrypoint
+ENTRYPOINT ["/app/run.sh"]
