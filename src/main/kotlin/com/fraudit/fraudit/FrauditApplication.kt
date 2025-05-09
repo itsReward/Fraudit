@@ -20,15 +20,19 @@ fun main(args: Array<String>) {
     val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
 
     println("=====================================")
-    println("Starting application with PORT: $port")
-    println("All environment variables:")
-    System.getenv().forEach { (key, value) ->
-        println("$key: ${if (key.contains("PASSWORD", ignoreCase = true)) "***REDACTED***" else value}")
-    }
+    println("Starting Fraudit application on port: $port")
+    println("Setting server.port system property to: $port")
     println("=====================================")
 
-    // Set server port
+    // Force port configuration
     System.setProperty("server.port", port.toString())
+    System.setProperty("spring.main.web-application-type", "servlet")
 
-    runApplication<FrauditApplication>(*args)
+    // Start application
+    runApplication<FrauditApplication>(*args) {
+        setDefaultProperties(mapOf(
+            "server.port" to port.toString(),
+            "spring.main.web-application-type" to "servlet"
+        ))
+    }
 }
