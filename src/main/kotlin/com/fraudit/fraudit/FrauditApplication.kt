@@ -16,8 +16,8 @@ class FrauditApplication : SpringBootServletInitializer() {
 
 
 fun main(args: Array<String>) {
-    // Get PORT environment variable with default fallback to 8081
-    val port = System.getenv("SERVER_PORT")?.toIntOrNull() ?: 8081
+    // Get PORT environment variable with default fallback to 8080
+    val port = System.getenv("SERVER_PORT")?.toIntOrNull() ?: 8080
 
     println("=====================================")
     println("Starting Fraudit application on port: $port")
@@ -26,13 +26,11 @@ fun main(args: Array<String>) {
 
     // Force port configuration
     System.setProperty("server.port", port.toString())
-    System.setProperty("spring.main.web-application-type", "servlet")
 
     // Start application
     runApplication<FrauditApplication>(*args) {
         setDefaultProperties(mapOf(
-            "server.port" to port.toString(),
-            "spring.main.web-application-type" to "servlet"
+            "server.port" to port.toString()
         ))
     }
 }
