@@ -2,18 +2,12 @@ FROM amazoncorretto:17-alpine
 
 WORKDIR /app
 
-# Install debugging tools
+# Install necessary tools
 RUN apk add --no-cache bash curl netcat-openbsd
 
-
-# Add port check script
-COPY port-check.sh ./
-RUN chmod +x ./port-check.sh
-
-# Copy run script first and make it executable
-COPY run.sh ./
-RUN chmod +x ./run.sh
-
+# Copy proxy and run scripts first
+COPY port-proxy.sh run.sh ./
+RUN chmod +x ./port-proxy.sh ./run.sh
 
 # Copy Gradle files for better layer caching
 COPY gradle gradle

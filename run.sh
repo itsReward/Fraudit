@@ -1,14 +1,31 @@
 #!/bin/sh
-# Immediately bind to port 8080
-echo "Starting port binding on 8080"
-nc -l -k -p 8080 -e 'echo -e "HTTP/1.1 200 OK\nContent-Type: text/plain\n\nService is starting" | cat -' &
-NC_PID=$!
+echo "Starting application with port configuration"
 
-# Now start the application
-echo "Starting application..."
-java -Dserver.port=5001 -jar /app/build/libs/fraudit.jar &
+# Start the port proxy in the background
+./port-proxy.sh &
+PROXY_PID=$!
+
+# Export necessary environment variables
+export SERVER_PORT=8080
+export SPRING_FLYWAY_BASELINE_ON_MIGRATE=true
+export SPRING_FLYWAY_LOCATIONS=classpath:db/migration
+export SPRING_PROFILES_ACTIVE=prod
+
+# Wait a moment for the proxy to bind
+sleep 2
+
+echo "Port proxy started on PID $PROXY_PID"
+echo "Starting Spring Boot application..."
+
+# Start the Spring Boot application
+java -Dserver.port=8080 -Dspring.main.web-application-type=servlet -jar /app/build/libs/fraudit.jar &
 APP_PID=$!
 
-# Wait for application to exit
+# Wait for the application to complete startup
 wait $APP_PID
-kill $NC_PID
+
+# If we get here, the app has exited - kill the proxy
+kill $PROXY_PID
+
+# Exit with the same code as the app
+exit $?
