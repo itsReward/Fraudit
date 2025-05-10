@@ -1,32 +1,45 @@
 #!/bin/sh
-echo "Starting application with port configuration"
+echo "Starting Fraudit application with diagnostic mode"
 
-# Start the port proxy in the background
-./port-proxy.sh &
+# Start port proxy on port 8080 for Render health checks
+python3 -m http.server 8080 &
 PROXY_PID=$!
+echo "Python HTTP server started on PID $PROXY_PID for health checks"
 
-# Export necessary environment variables
-export SERVER_PORT=8080
-export SPRING_FLYWAY_BASELINE_ON_MIGRATE=true
-export SPRING_FLYWAY_LOCATIONS=classpath:db/migration
+# Set JVM memory limits (crucial for Render free tier)
+export JAVA_OPTS="-Xmx400m -Xms100m -XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError"
+
+# Disable Flyway temporarily to debug application startup
+export SPRING_FLYWAY_ENABLED=false
+
+# Use a different port for the actual application to avoid conflict
+export SERVER_PORT=8081
 export SPRING_PROFILES_ACTIVE=prod
 
-# Wait a moment for the proxy to bind
-sleep 2
+# Run the application with memory constraints and diagnostic options
+java $JAVA_OPTS \
+  -Dserver.port=8081 \
+  -Dlogging.level.org.springframework=DEBUG \
+  -Dlogging.level.com.fraudit=DEBUG \
+  -Dlogging.level.org.hibernate=DEBUG \
+  -jar /app/build/libs/fraudit.jar &
 
-echo "Port proxy started on PID $PROXY_PID"
-echo "Starting Spring Boot application..."
-
-# Start the Spring Boot application
-java -Xmx400m -Xms100m -jar /app/build/libs/fraudit.jar
-java -Dserver.port=8080 -Dspring.main.web-application-type=servlet -jar /app/build/libs/fraudit.jar &
 APP_PID=$!
+echo "Spring Boot application started on PID $APP_PID with port 8081"
 
-# Wait for the application to complete startup
-wait $APP_PID
+# Log system resources periodically
+while true; do
+  sleep 30
+  echo "===== SYSTEM RESOURCES ====="
+  free -m
+  ps -o pid,rss,command | grep java
+  echo "==========================="
 
-# If we get here, the app has exited - kill the proxy
-kill $PROXY_PID
-
-# Exit with the same code as the app
-exit $?
+  # Check if the app is still running
+  if ! kill -0 $APP_PID 2>/dev/null; then
+    echo "!!! APPLICATION CRASHED !!!"
+    echo "Last few lines of logs:"
+    tail -n 50 /tmp/app.log
+    echo "==========================="
+  fi
+done

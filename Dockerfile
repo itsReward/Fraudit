@@ -3,11 +3,11 @@ FROM amazoncorretto:17-alpine
 WORKDIR /app
 
 # Install necessary tools
-RUN apk add --no-cache bash curl netcat-openbsd
+RUN apk add --no-cache python3 bash curl procps
 
-# Copy proxy and run scripts first
-COPY port-proxy.sh run.sh ./
-RUN chmod +x ./port-proxy.sh ./run.sh
+# Copy run script
+COPY run.sh ./
+RUN chmod +x ./run.sh
 
 # Copy Gradle files for better layer caching
 COPY gradle gradle
@@ -27,8 +27,11 @@ RUN ./gradlew bootJar --info
 # Verify JAR exists
 RUN ls -la build/libs/
 
-# Explicitly expose port 8080
-EXPOSE 8080
+# Create and set up a crash log directory
+RUN mkdir -p /tmp/logs && chmod 777 /tmp/logs
+
+# Explicitly expose ports
+EXPOSE 8080 8081
 
 # Use the run script for startup
 ENTRYPOINT ["./run.sh"]
