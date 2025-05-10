@@ -18,6 +18,7 @@ echo "Port proxy started on PID $PROXY_PID"
 echo "Starting Spring Boot application..."
 
 # Start the Spring Boot application
+java -Xmx400m -Xms100m -jar /app/build/libs/fraudit.jar
 java -Dserver.port=8080 -Dspring.main.web-application-type=servlet -jar /app/build/libs/fraudit.jar &
 APP_PID=$!
 
