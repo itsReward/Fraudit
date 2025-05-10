@@ -18,6 +18,8 @@ RUN chmod +x ./gradlew
 # Copy source code
 COPY src src
 
+# Create and set up a crash log directory
+RUN mkdir -p /tmp/logs && chmod 777 /tmp/logs
 # Create upload directory
 RUN mkdir -p /opt/render/project/uploads && chmod -R 777 /opt/render/project/uploads
 
@@ -27,8 +29,7 @@ RUN ./gradlew bootJar --info
 # Verify JAR exists
 RUN ls -la build/libs/
 
-# Create and set up a crash log directory
-RUN mkdir -p /tmp/logs && chmod 777 /tmp/logs
+
 
 # Explicitly expose ports
 EXPOSE 8080 8081

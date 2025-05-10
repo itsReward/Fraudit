@@ -2,11 +2,12 @@
     "name": "fraudit-proxy",
     "version": "1.0.0",
     "description": "Proxy server for FraudIt",
-    "main": "server.js",
+    "main": "proxy.js",
     "scripts": {
-    "start": "node server.js"
-},
+        "start": "node proxy.js"
+    },
     "dependencies": {
-    "express": "^4.17.1"
-}
+        "express": "^4.17.1",
+        "http-proxy-middleware": "^2.0.6"
+    }
 }
