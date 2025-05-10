@@ -23,6 +23,10 @@ export SPRING_PROFILES_ACTIVE=prod
 echo "Spring Boot JAR files in build/libs:"
 ls -la /app/build/libs/
 
+# Get the exact JAR filename (without using wildcards)
+JAR_FILE=$(ls -1 /app/build/libs/fraudit*.jar | head -n 1)
+echo "Using JAR file: $JAR_FILE"
+
 # Start the Spring Boot app in the background
 echo "Starting Spring Boot application..."
 java $JAVA_OPTS \
@@ -31,7 +35,7 @@ java $JAVA_OPTS \
   -Dlogging.level.org.springframework=INFO \
   -Dlogging.level.com.fraudit=INFO \
   -Dlogging.level.org.hibernate=INFO \
-  -jar /app/build/libs/fraudit-*.jar > /tmp/logs/stdout.log 2>&1 &
+  -jar $JAR_FILE > /tmp/logs/stdout.log 2>&1 &
 
 APP_PID=$!
 echo "Spring Boot application started on PID $APP_PID"
@@ -51,7 +55,10 @@ while [ $START_WAIT_COUNT -lt 30 ]; do
   if ! kill -0 $APP_PID 2>/dev/null; then
     echo "!!! APPLICATION CRASHED DURING STARTUP !!!"
     cat /tmp/logs/stdout.log
-    exit 1
+    # Start serving static content since the app failed
+    echo '{"status":"DOWN","message":"Application failed to start"}' > /tmp/health.json
+    # Don't exit - keep the Python server running for health checks
+    break
   fi
 
   echo "Waiting for app to start... ($START_WAIT_COUNT/30)"
@@ -85,9 +92,12 @@ while true; do
     fi
     echo "==========================="
 
-    # Start the Python server again for health checks
-    cd /tmp && python3 -m http.server 8080 &
-    PROXY_PID=$!
+    # Make sure the Python server is running for health checks if the app crashed
+    if ! kill -0 $PROXY_PID 2>/dev/null; then
+      cd /tmp && python3 -m http.server 8080 &
+      PROXY_PID=$!
+      echo "Restarted Python HTTP server on PID $PROXY_PID for health checks"
+    fi
 
     # Restart the application
     echo "Attempting to restart the application..."
@@ -97,7 +107,7 @@ while true; do
       -Dlogging.level.org.springframework=INFO \
       -Dlogging.level.com.fraudit=INFO \
       -Dlogging.level.org.hibernate=INFO \
-      -jar /app/build/libs/fraudit-*.jar > /tmp/logs/stdout.log 2>&1 &
+      -jar $JAR_FILE > /tmp/logs/stdout.log 2>&1 &
 
     APP_PID=$!
     echo "Spring Boot application restarted on PID $APP_PID"
