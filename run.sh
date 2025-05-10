@@ -10,7 +10,7 @@ echo "Python HTTP server started on PID $PROXY_PID for health checks"
 export JAVA_OPTS="-Xmx400m -Xms100m -XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError"
 
 # Disable Flyway temporarily to debug application startup
-export SPRING_FLYWAY_ENABLED=false
+export SPRING_FLYWAY_ENABLED=true
 
 # Use a different port for the actual application to avoid conflict
 export SERVER_PORT=8081

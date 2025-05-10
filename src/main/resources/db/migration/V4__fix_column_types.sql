@@ -1,0 +1,16 @@
+-- Fix column types to match entity definitions
+ALTER TABLE altman_z_score ALTER COLUMN z_score_id TYPE bigint;
+ALTER TABLE audit_log ALTER COLUMN log_id TYPE bigint;
+ALTER TABLE beneish_m_score ALTER COLUMN m_score_id TYPE bigint;
+ALTER TABLE companies ALTER COLUMN company_id TYPE bigint;
+ALTER TABLE document_storage ALTER COLUMN document_id TYPE bigint;
+ALTER TABLE financial_data ALTER COLUMN data_id TYPE bigint;
+ALTER TABLE financial_ratios ALTER COLUMN ratio_id TYPE bigint;
+ALTER TABLE financial_statements ALTER COLUMN statement_id TYPE bigint;
+ALTER TABLE fiscal_years ALTER COLUMN fiscal_year_id TYPE bigint;
+ALTER TABLE fraud_risk_assessment ALTER COLUMN assessment_id TYPE bigint;
+ALTER TABLE ml_features ALTER COLUMN feature_id TYPE bigint;
+ALTER TABLE ml_models ALTER COLUMN model_id TYPE bigint;
+ALTER TABLE ml_predictions ALTER COLUMN prediction_id TYPE bigint;
+ALTER TABLE piotroski_f_score ALTER COLUMN f_score_id TYPE bigint;
+ALTER TABLE risk_alerts ALTER COLUMN alert_id TYPE bigint;
