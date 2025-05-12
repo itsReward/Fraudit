@@ -25,6 +25,7 @@ class MinimalHealthController(
     private val appName: String = "fraudit-application"
 
     private val startTime = OffsetDateTime.now()
+
     private val requestCounter = AtomicInteger(0)
 
     @GetMapping("/")
