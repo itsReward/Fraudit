@@ -11,7 +11,8 @@ import java.util.UUID
 @Table(name = "audit_log")
 data class AuditLog(
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "audit_log_sequence")
+    @SequenceGenerator(name = "audit_log_sequence", sequenceName = "audit_log_log_id_seq", allocationSize = 1)
     @Column(name = "log_id")
     val id: Long? = null,
 
