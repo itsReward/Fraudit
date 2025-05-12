@@ -2,8 +2,8 @@ FROM amazoncorretto:17-alpine
 
 WORKDIR /app
 
-# Install necessary tools
-RUN apk add --no-cache python3 bash curl procps
+# Install minimal necessary tools
+RUN apk add --no-cache bash curl
 
 # Create log directory
 RUN mkdir -p /tmp/logs && chmod -R 777 /tmp/logs
@@ -33,5 +33,5 @@ RUN ls -la build/libs/
 # Explicitly expose port
 EXPOSE 8080
 
-# Use the run script for startup
+# Start Spring Boot application directly
 ENTRYPOINT ["./run.sh"]

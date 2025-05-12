@@ -5,22 +5,30 @@ services:
     region: oregon
     plan: free
     branch: main
-    healthCheckPath: /
+    healthCheckPath: /health
     healthCheckTimeout: 180
     autoDeploy: false
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-      - key: SPRING_FLYWAY_BASELINE_ON_MIGRATE
-        value: "true"
       - key: SPRING_JPA_HIBERNATE_DDL_AUTO
         value: validate
       - key: PORT
         value: "8080"
       - key: SERVER_PORT
         value: "8080"
-      - key: SPRING_JPA_HIBERNATE_DDL_AUTO
-        value: update
+      - fromDatabase:
+          name: fraudit-db
+          property: connectionString
+        key: SPRING_DATASOURCE_URL
+      - fromDatabase:
+          name: fraudit-db
+          property: user
+        key: SPRING_DATASOURCE_USERNAME
+      - fromDatabase:
+          name: fraudit-db
+          property: password
+        key: SPRING_DATASOURCE_PASSWORD
     disk:
       name: fraudit-data
       mountPath: /opt/render/project/uploads
